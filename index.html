@@ -1,0 +1,2946 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerador de Relatório de Transações de Criptoativos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.2.3/build/index.umd.js"></script>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #21262d;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --green: #3fb950;
+  --red: #f85149;
+  --orange: #d29922;
+  --purple: #bc8cff;
+  --r: 8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* Layout */
+#app{max-width:960px;margin:0 auto;padding:24px 16px 64px}
+.sec{margin-bottom:32px}
+.sec-head{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.sec-num{width:32px;height:32px;border-radius:50%;background:var(--accent);color:#000;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sec-head h2{font-size:17px;font-weight:600;color:var(--text)}
+.sec-head p{font-size:12px;color:var(--muted)}
+.ml-auto{margin-left:auto}
+
+/* Header */
+.app-header{background:var(--surface);border-bottom:1px solid var(--border);padding:20px 0;margin-bottom:32px}
+.header-inner{max-width:960px;margin:0 auto;padding:0 16px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.app-title{font-size:20px;font-weight:700;color:var(--text)}
+.app-sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* Card */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px}
+
+/* Forms */
+.fg{display:flex;flex-direction:column;gap:6px}
+.fg label{font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.fg input,.fg textarea,.fg select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border .15s}
+.fg input:focus,.fg textarea:focus,.fg select:focus{border-color:var(--accent)}
+.fg textarea{resize:vertical;min-height:80px}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fg2{grid-column:1/-1}
+@media(max-width:600px){.meta-grid{grid-template-columns:1fr}}
+
+/* Logo upload zone */
+.logo-upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .2s;position:relative;background:var(--surface2)}
+.logo-upload-zone:hover,.logo-upload-zone.drag-over{border-color:var(--accent);background:rgba(88,166,255,.06)}
+.logo-upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.logo-preview{width:72px;height:72px;object-fit:contain;border-radius:6px;border:1px solid var(--border);background:var(--bg);flex-shrink:0}
+.logo-placeholder{width:72px;height:72px;border-radius:6px;border:1px dashed var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:24px;flex-shrink:0}
+.logo-info{font-size:12px;color:var(--muted)}
+.logo-info strong{color:var(--text);display:block;margin-bottom:2px}
+.logo-info small{font-size:11px;color:var(--muted);opacity:.7}
+
+/* Contexto do relatório */
+.context-box{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-top:12px}
+.context-box-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+
+/* Assinatura digital */
+.sig-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-top:0}
+.sig-phone-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.sig-phone-row .fg{flex:1;min-width:200px}
+.sig-output{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:14px;margin-top:12px;font-family:monospace;font-size:11px;line-height:1.7;word-break:break-all;color:var(--text)}
+.sig-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px}
+.sig-field{margin-bottom:10px}
+.sig-field:last-child{margin-bottom:0}
+.sig-value{color:var(--accent);font-size:11px}
+.sig-hash{color:var(--green);font-size:10px;word-break:break-all}
+.sig-warn{color:var(--orange);font-size:11px;margin-top:8px;padding:8px 10px;background:#3a2a10;border-radius:5px;border:1px solid var(--orange)}
+.btn-sig{background:#1a2a3a;color:var(--accent);border-color:#2a4a6a}
+.btn-sig:hover:not(:disabled){background:#2a4a6a}
+.tx-context-box{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-top:10px}
+.tx-context-box label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px}
+.tx-context-box textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:7px 10px;color:var(--text);font-size:12px;font-family:inherit;resize:vertical;min-height:60px;outline:none;line-height:1.6;transition:border .15s}
+.tx-context-box textarea:focus{border-color:var(--accent)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;border:1px solid var(--border);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;font-family:inherit}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--accent);color:#000;border-color:var(--accent)}
+.btn-primary:hover:not(:disabled){background:#79bcff}
+.btn-secondary{background:var(--surface2);color:var(--text)}
+.btn-secondary:hover:not(:disabled){border-color:var(--accent)}
+.btn-danger{background:#3d1f1f;color:var(--red);border-color:#5a2828}
+.btn-danger:hover:not(:disabled){background:#5a2828}
+.btn-docx{background:#3d2060;color:var(--purple);border-color:#5a3090}
+.btn-docx:hover:not(:disabled){background:#5a3090}
+.btn-green{background:#1a3a22;color:var(--green);border-color:#2a5a32}
+.btn-green:hover:not(:disabled){background:#2a5a32}
+.btn-icon{padding:5px 9px;font-size:12px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* API Keys button */
+.btn-keys{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 14px;color:var(--text);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:inherit}
+.btn-keys:hover{border-color:var(--accent)}
+.kdots{display:flex;gap:4px}
+.kdot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:background .2s}
+.kdot.on-eth{background:var(--accent)}
+.kdot.on-trx{background:#e8462a}
+
+/* Transaction cards */
+#txList{display:flex;flex-direction:column;gap:14px}
+.empty-state{text-align:center;padding:48px 24px;color:var(--muted);background:var(--surface);border:1px dashed var(--border);border-radius:var(--r)}
+.empty-state .muted{font-size:12px;margin-top:4px}
+
+.tx-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);border-left:4px solid var(--border);overflow:hidden;transition:border-left-color .2s}
+.tx-card.state-done{border-left-color:var(--orange)}
+.tx-card.state-approved{border-left-color:var(--green)}
+.tx-card.state-error{border-left-color:var(--red)}
+.tx-card.state-loading{border-left-color:var(--accent)}
+
+.tx-card-header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tx-head-left{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.tx-head-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.tx-hash-abbr{font-family:monospace;font-size:12px;color:var(--muted)}
+.tx-asset-pill{font-size:12px;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 8px}
+
+/* Network badges */
+.net-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.5px;text-transform:uppercase}
+.net-badge.eth{background:#1a3a6e;color:#7eb8ff}
+.net-badge.trx{background:#3d1515;color:#ff7070}
+.net-badge.btc{background:#4a3410;color:#f7b955}
+
+/* Status badges */
+.st-badge{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600}
+.st-badge.ok{background:#1a3a22;color:var(--green)}
+.st-badge.fail{background:#3d1515;color:var(--red)}
+.st-badge.unk{background:#2a2a2a;color:var(--muted)}
+
+/* Approval */
+.apv-badge{font-size:11px;padding:3px 9px;border-radius:12px;font-weight:600;white-space:nowrap}
+.apv-badge.approved{background:#1a3a22;color:var(--green)}
+.apv-badge.pending{background:#3a2a10;color:var(--orange)}
+
+/* Card body */
+.tx-card-body{padding:16px}
+.tx-body-section{margin-bottom:16px}
+.tx-body-section:last-child{margin-bottom:0}
+.tx-body-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+
+/* Network selector in card */
+.net-selector{display:flex;gap:6px;margin-bottom:12px}
+.net-btn{padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.net-btn.active-eth{background:#1a3a6e;color:#7eb8ff;border-color:#2a5a9e}
+.net-btn.active-trx{background:#3d1515;color:#ff7070;border-color:#6a2020}
+.net-btn.active-btc{background:#4a3410;color:#f7b955;border-color:#7a5410}
+
+/* Listas de entradas/saídas (UTXO) */
+.utxo-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:600px){.utxo-cols{grid-template-columns:1fr}}
+.utxo-box{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px}
+.utxo-box-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.utxo-row{display:flex;justify-content:space-between;gap:8px;font-family:monospace;font-size:11px;padding:3px 0;border-bottom:1px dashed var(--border);word-break:break-all}
+.utxo-row:last-child{border-bottom:none}
+.utxo-row .ux-addr{color:var(--text)}
+.utxo-row .ux-val{color:var(--muted);white-space:nowrap}
+.utxo-row.target{background:rgba(247,185,85,.1);border-radius:4px;padding:3px 6px}
+.utxo-row.target .ux-addr{color:#f7b955;font-weight:700}
+.btc-target-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.btc-target-row label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.btc-target-row input,.btc-target-row textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:12px;font-family:monospace;outline:none;resize:vertical;line-height:1.5}
+.btc-target-row input:focus,.btc-target-row textarea:focus{border-color:var(--accent)}
+.btc-switch{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none;margin-bottom:8px}
+.btc-switch input{width:16px;height:16px;cursor:pointer}
+
+/* Query row */
+.query-row{display:flex;gap:8px;flex-wrap:wrap}
+.query-row input{flex:1;min-width:200px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:13px;font-family:monospace;outline:none;transition:border .15s}
+.query-row input:focus{border-color:var(--accent)}
+.err-msg{color:var(--red);font-size:12px;margin-top:6px;padding:8px 12px;background:#3d1515;border-radius:6px}
+
+/* Loading */
+.loading-row{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;padding:8px 0}
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Data grid */
+.tx-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.tx-data-grid .data-row-full{grid-column:1/-1}
+@media(max-width:600px){.tx-data-grid{grid-template-columns:1fr}}
+.df{display:flex;flex-direction:column;gap:2px}
+.df-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.df-val{font-size:12px;color:var(--text);word-break:break-all;font-family:monospace}
+.df-val.mono{font-family:monospace}
+
+/* Manual form */
+.manual-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.manual-grid .span2{grid-column:1/-1}
+@media(max-width:600px){.manual-grid{grid-template-columns:1fr}}
+
+/* Text area */
+.tx-text-area{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:100px;outline:none;transition:border .15s;line-height:1.6}
+.tx-text-area:focus{border-color:var(--accent)}
+
+/* Drop zone */
+.drop-zone{border:2px dashed var(--border);border-radius:var(--r);padding:20px;text-align:center;cursor:pointer;transition:all .2s;color:var(--muted);font-size:13px;position:relative}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:rgba(88,166,255,.04);color:var(--accent)}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dz-icon{font-size:24px;margin-bottom:6px}
+
+/* Image grid */
+.img-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.img-thumb{background:var(--surface2);border:1px solid var(--border);border-radius:6px;overflow:hidden;width:130px;display:flex;flex-direction:column}
+.img-thumb img{width:130px;height:90px;object-fit:cover;cursor:zoom-in;display:block}
+.img-thumb input{background:transparent;border:none;border-top:1px solid var(--border);padding:5px 7px;font-size:11px;color:var(--muted);font-family:inherit;width:100%;outline:none}
+.img-thumb input:focus{background:var(--bg)}
+.img-thumb-btns{display:flex;justify-content:space-between;padding:4px 5px;border-top:1px solid var(--border)}
+.img-thumb-btns button{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:2px 5px;border-radius:4px}
+.img-thumb-btns button:hover{color:var(--text);background:var(--bg)}
+
+/* Report summary */
+.report-summary{padding:14px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);margin-bottom:4px;font-size:13px;color:var(--muted)}
+.report-summary strong{color:var(--text)}
+.summary-row{display:flex;align-items:center;gap:8px}
+.summary-count{font-size:20px;font-weight:700;color:var(--accent)}
+
+/* Overlay / Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column}
+.modal-wide{max-width:800px}
+.modal-title{font-size:16px;font-weight:600;padding:18px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:4px}
+.modal-close:hover{color:var(--text);background:var(--surface2)}
+.modal-body{padding:20px;flex:1}
+.modal-footer{padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center}
+.modal-note{font-size:11px;color:var(--muted);padding:12px 20px;border-top:1px solid var(--border)}
+.key-section{margin-bottom:16px;padding:14px;background:var(--surface2);border-radius:6px}
+.key-section:last-child{margin-bottom:0}
+.key-sec-label{font-size:12px;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.key-row{display:flex;align-items:center;gap:8px}
+.key-row input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:13px;font-family:monospace;outline:none}
+.key-row input:focus{border-color:var(--accent)}
+.key-ind{width:10px;height:10px;border-radius:50%;background:var(--border);flex-shrink:0}
+.key-ind.set{background:var(--green)}
+
+/* Key warning */
+#keyWarning{display:none;padding:8px 14px;background:#3a2a10;border:1px solid var(--orange);border-radius:6px;color:var(--orange);font-size:12px;margin-bottom:12px;cursor:pointer}
+#keyWarning:hover{background:#4a3a18}
+
+/* Preview content */
+.preview-content{padding:20px;overflow-y:auto;max-height:70vh;background:#fff;color:#111;border-radius:6px;margin:12px 20px}
+.preview-content h1{font-size:20px;margin-bottom:8px;color:#111}
+.preview-content h2{font-size:15px;margin-top:20px;margin-bottom:6px;color:#222;border-bottom:1px solid #ddd;padding-bottom:4px}
+.preview-content h3{font-size:13px;margin-top:16px;margin-bottom:4px;color:#333}
+.preview-content p{font-size:12px;margin-bottom:6px;color:#333}
+.preview-content .meta-table{font-size:12px;margin-bottom:12px;color:#555;border-collapse:collapse;width:100%}
+.preview-content .meta-table td{padding:3px 8px 3px 0;vertical-align:top}
+.preview-content .meta-table td:first-child{font-weight:600;white-space:nowrap;color:#333;width:160px}
+.preview-content .tx-block{background:#f8f8f8;border-left:3px solid #3b82f6;padding:10px 14px;margin:10px 0;border-radius:4px}
+.preview-content .tx-block h3{color:#1d4ed8;margin-top:0}
+.preview-content .tx-text-p{background:#fff;border:1px solid #e5e7eb;padding:8px 12px;border-radius:4px;font-size:12px;line-height:1.7;color:#222;margin:6px 0}
+.preview-content .tx-img-block{margin:8px 0}
+.preview-content .tx-img-block img{max-width:100%;border-radius:4px;border:1px solid #e5e7eb}
+.preview-content .tx-img-caption{font-size:11px;color:#666;font-style:italic;margin-top:3px}
+.preview-content .intro-text{font-size:12px;color:#555;border:1px solid #e5e7eb;padding:10px;border-radius:4px;background:#f9f9f9;margin:10px 0;line-height:1.7;text-align:justify}
+/* Campos rotulados e listas UTXO na prévia */
+.preview-content .tx-fields{font-size:12px;color:#333;margin:2px 0 8px}
+.preview-content .tx-fields .fld{margin:2px 0}
+.preview-content .tx-fields .fld b{color:#111}
+.preview-content .tx-text-p{text-align:justify}
+.preview-content .utxo-rep{margin:10px 0 4px}
+.preview-content .utxo-rep h4{font-size:12px;color:#1d4ed8;margin:10px 0 4px;font-weight:700}
+.preview-content .utxo-rep table{width:100%;border-collapse:collapse;font-size:11px;font-family:'Courier New',monospace}
+.preview-content .utxo-rep td{padding:3px 8px;border-bottom:1px solid #eee;vertical-align:top;word-break:break-all}
+.preview-content .utxo-rep td.v{text-align:right;white-space:nowrap;color:#444;width:140px}
+.preview-content .utxo-rep tr.t td{background:#fff7e6;color:#b45309;font-weight:700}
+.preview-content .utxo-rep .tag{font-family:'Segoe UI',sans-serif;font-size:9px;color:#fff;background:#d97706;border-radius:3px;padding:1px 5px;margin-left:8px;font-weight:700;vertical-align:middle}
+
+/* Image fullscreen */
+#imgPreviewOverlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:2000;display:none;align-items:center;justify-content:center;cursor:zoom-out}
+#imgPreviewOverlay.open{display:flex}
+#imgPreviewOverlay img{max-width:94vw;max-height:94vh;object-fit:contain;border-radius:6px}
+
+/* Utility */
+.mt8{margin-top:8px}
+.mt12{margin-top:12px}
+.mt16{margin-top:16px}
+.muted{color:var(--muted)}
+.text-green{color:var(--green)}
+.text-red{color:var(--red)}
+.text-orange{color:var(--orange)}
+hr.divider{border:none;border-top:1px solid var(--border);margin:14px 0}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="header-inner">
+    <div>
+      <h1 class="app-title">Gerador de Relatório de Transações de Criptoativos</h1>
+      <p class="app-sub">Documentação objetiva de transações em redes públicas de blockchain · Sem backend · Sem coleta de dados</p>
+    </div>
+    <button class="btn-keys" onclick="openKeyModal()">
+      🔑 Chaves de API
+      <span class="kdots">
+        <span class="kdot" id="dotEth" title="Etherscan"></span>
+        <span class="kdot" id="dotTron" title="TronGrid"></span>
+      </span>
+    </button>
+  </div>
+</header>
+
+<div id="app">
+
+  <!-- Aviso chave ausente -->
+  <div id="keyWarning" onclick="openKeyModal()">
+    ⚠ Chave do Etherscan não configurada. Clique aqui para inserir.
+  </div>
+
+  <!-- SEÇÃO 1: Dados do Relatório -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">1</span>
+      <div>
+        <h2>Dados do Relatório</h2>
+        <p>Identificação do procedimento e do operador</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="meta-grid">
+        <div class="fg"><label>Nome do Relatório *</label>
+          <input id="mName" placeholder="Ex.: Relatório de Análise de Transações Nº 001/2025" oninput="updateMeta()">
+        </div>
+        <div class="fg"><label>Nº do Procedimento / Investigação</label>
+          <input id="mProc" placeholder="Ex.: IPL 001/2025" oninput="updateMeta()">
+        </div>
+        <div class="fg"><label>Nome do Operador</label>
+          <input id="mOper" placeholder="Nome completo" oninput="updateMeta()">
+        </div>
+        <div class="fg"><label>Unidade</label>
+          <input id="mUnit" placeholder="Ex.: Superintendência de Inteligência Policial Civil" oninput="updateMeta()">
+        </div>
+        <div class="fg fg2"><label>Instituição</label>
+          <input id="mInst" placeholder="Ex.: Polícia Civil do Estado de Goiás" oninput="updateMeta()">
+        </div>
+      </div>
+
+      <!-- Logo da instituição -->
+      <div class="mt12">
+        <div class="fg" style="margin-bottom:6px"><label>Logo da Instituição</label></div>
+        <div class="logo-upload-zone" id="logoUploadZone"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="handleLogoDrop(event)">
+          <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml" id="logoFileInput" onchange="handleLogoFile(this)">
+          <div id="logoPlaceholder" class="logo-placeholder">🏛</div>
+          <img id="logoPreview" class="logo-preview" style="display:none" alt="Logo da instituição">
+          <div class="logo-info">
+            <strong>Arraste, cole ou clique para selecionar</strong>
+            Logo oficial da instituição para o cabeçalho do relatório<br>
+            <small>PNG · JPG · WEBP · SVG · Ctrl+V para colar</small>
+          </div>
+          <button class="btn btn-danger btn-icon" id="logoRemoveBtn" style="display:none;position:relative;z-index:2" onclick="removeLogo(event)">✕</button>
+        </div>
+      </div>
+
+      <!-- Contexto / introdução do relatório -->
+      <div class="context-box mt12">
+        <div class="context-box-label">Contexto do Relatório <span style="text-transform:none;font-weight:400;color:var(--muted)">(introdução sobre o trabalho — opcional)</span></div>
+        <textarea id="mContext" class="tx-text-area" style="min-height:80px" placeholder="Descreva o contexto da investigação, os objetivos do relatório e quaisquer informações relevantes ao trabalho a ser documentado..." oninput="updateMeta()"></textarea>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- SEÇÃO 2: Transações -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">2</span>
+      <div>
+        <h2>Transações</h2>
+        <p>Adicione, consulte e aprove as transações a documentar</p>
+      </div>
+      <button class="btn btn-primary ml-auto" onclick="addTransaction()">＋ Adicionar Transação</button>
+    </div>
+    <div id="txList">
+      <div class="empty-state" id="txEmpty">
+        <div style="font-size:2.5rem;margin-bottom:10px">⛓</div>
+        <p>Nenhuma transação adicionada.</p>
+        <p class="muted">Clique em "Adicionar Transação" para começar.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SEÇÃO 3: Montagem do Relatório -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">3</span>
+      <div>
+        <h2>Montagem do Relatório</h2>
+        <p>Revise e gere o relatório final</p>
+      </div>
+    </div>
+    <div class="card">
+      <div id="reportSummary" class="report-summary">
+        <span class="muted">Nenhuma transação aprovada ainda.</span>
+      </div>
+      <div class="btn-row mt12">
+        <button class="btn btn-secondary" onclick="showPreview()">👁 Gerar Prévia</button>
+        <button class="btn btn-primary" onclick="generatePDF()">⬇ PDF</button>
+        <button class="btn btn-docx" onclick="generateDOCX()">⬇ DOCX</button>
+      </div>
+      <hr class="divider">
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="exportProject()">💾 Exportar Projeto JSON</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">📂 Importar Projeto JSON</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importProject(this)">
+      </div>
+    </div>
+  </section>
+
+  <!-- SEÇÃO 4: Assinatura Digital do Analista -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">4</span>
+      <div>
+        <h2>Assinatura Digital do Analista</h2>
+        <p>Gerada a partir do número de telefone como entropia para as chaves criptográficas</p>
+      </div>
+    </div>
+    <div class="sig-section">
+      <div class="sig-phone-row">
+        <div class="fg">
+          <label>Número de Telefone do Analista</label>
+          <input id="sigPhone" placeholder="(XX)XXXXXXXXX" maxlength="13"
+            oninput="maskPhone(this);clearSignature()"
+            style="font-family:monospace;letter-spacing:1px">
+        </div>
+        <button class="btn btn-sig" onclick="generateSignature()" style="height:36px;align-self:flex-end">🔐 Gerar Assinatura</button>
+        <button class="btn btn-secondary" onclick="clearSignature()" style="height:36px;align-self:flex-end">✕ Limpar</button>
+      </div>
+      <div id="sigWarn" class="sig-warn" style="display:none">
+        ⚠ O número de telefone é usado como entropia local para derivação de chaves. <strong>Nenhum dado é enviado a servidores externos.</strong>
+        A assinatura é determinística: o mesmo número sempre gera as mesmas chaves.
+      </div>
+      <div id="sigOutput" class="sig-output" style="display:none">
+        <div class="sig-field">
+          <span class="sig-label">Chave de Verificação (HMAC-SHA256 / Base64)</span>
+          <span class="sig-value" id="sigPubKey"></span>
+        </div>
+        <div class="sig-field">
+          <span class="sig-label">Identificador do Analista</span>
+          <span class="sig-value" id="sigIdent"></span>
+        </div>
+        <div class="sig-field">
+          <span class="sig-label">Hash de Integridade (SHA-256 do relatório)</span>
+          <span class="sig-hash" id="sigHashVal"></span>
+        </div>
+        <div class="sig-field">
+          <span class="sig-label">Assinatura Digital (Base64)</span>
+          <span class="sig-hash" id="sigValue"></span>
+        </div>
+        <div class="sig-field">
+          <span class="sig-label">Timestamp de Assinatura</span>
+          <span class="sig-value" id="sigTimestamp"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div><!-- #app -->
+
+<!-- MODAL: Chaves de API -->
+<div class="overlay" id="keyModal" onclick="handleModalOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-title">Chaves de API</div>
+    <div class="modal-body">
+      <div class="key-section">
+        <div class="key-sec-label">
+          <span class="net-badge eth">ETH</span> Etherscan — obrigatória para consultas Ethereum
+        </div>
+        <div class="key-row">
+          <span class="key-ind" id="indEth"></span>
+          <input type="password" id="modalEthKey" placeholder="Cole aqui sua chave do Etherscan" autocomplete="off">
+        </div>
+      </div>
+      <div class="key-section">
+        <div class="key-sec-label">
+          <span class="net-badge trx">TRX</span> TronGrid — opcional para consultas Tron
+        </div>
+        <div class="key-row">
+          <span class="key-ind" id="indTron"></span>
+          <input type="password" id="modalTronKey" placeholder="Cole aqui sua chave da TronGrid (opcional)" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div class="modal-body" style="padding-top:0">
+      <div style="border:1px dashed var(--border);border-radius:6px;padding:12px 14px;position:relative;text-align:center;cursor:pointer;color:var(--muted);font-size:12px;transition:all .2s" id="keyDropZone"
+        ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+        ondragleave="this.style.borderColor=''"
+        ondrop="handleKeyFileDrop(event)">
+        <input type="file" accept=".txt" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="loadKeysFromFile(this)">
+        📄 Carregue um <strong>.txt</strong> com as chaves &nbsp;·&nbsp; <span style="font-family:monospace;font-size:11px">etherscan=CHAVE<br>trongrid=CHAVE</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveKeys()">Salvar</button>
+      <button class="btn btn-secondary" onclick="closeKeyModal()">Cancelar</button>
+      <button class="btn btn-danger" onclick="clearKeys()" style="margin-left:auto">Limpar chaves</button>
+    </div>
+    <p class="modal-note">🔒 As chaves ficam somente na sessão atual (sessionStorage) e são apagadas ao fechar a aba.</p>
+  </div>
+</div>
+
+<!-- MODAL: Prévia do Relatório -->
+<div class="overlay" id="previewModal" onclick="if(event.target===this)closePreview()">
+  <div class="modal modal-wide">
+    <div class="modal-title">
+      Prévia do Relatório
+      <button class="modal-close" onclick="closePreview()">✕</button>
+    </div>
+    <div id="previewContent" class="preview-content"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="generatePDF()">⬇ PDF</button>
+      <button class="btn btn-docx" onclick="generateDOCX()">⬇ DOCX</button>
+      <button class="btn btn-secondary" onclick="closePreview()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Imagem em tela cheia -->
+<div id="imgPreviewOverlay" onclick="this.classList.remove('open');this.style.display='none'">
+  <img id="imgPreviewBig" alt="preview">
+</div>
+
+<script>
+/* =============================================================
+   ESTADO GLOBAL
+   ============================================================= */
+let reportMeta = { name:'', procedure:'', operator:'', unit:'', institution:'', context:'', logoDataUrl:'' };
+let reportSignature = null; // { phone, publicKey, timestamp, hash }
+
+// reportTransactions: array de objetos de transação (mantido apenas em memória)
+let reportTransactions = [];
+
+// Chaves de API (apenas em memória; também persistidas em sessionStorage)
+let apiKeys = { ethereum:'', tron:'' };
+
+let txCounter  = 0;  // gerador de IDs de transação
+let imgCounter = 0;  // gerador de IDs de imagem
+
+// Último card que recebeu foco (para roteamento do paste de imagem)
+let lastFocusedTxId = null;
+
+/* =============================================================
+   CONSTANTES
+   ============================================================= */
+const ETHERSCAN_API  = 'https://api.etherscan.io/v2/api';
+const TRONGRID_API   = 'https://api.trongrid.io';
+const BLOCKSTREAM_API= 'https://blockstream.info/api';
+const MEMPOOL_API    = 'https://mempool.space/api';
+const ETH_EXPLORER   = 'https://etherscan.io/tx/';
+const TRON_EXPLORER  = 'https://tronscan.org/#/transaction/';
+const BTC_EXPLORER   = 'https://blockstream.info/tx/';
+const SK_ETH  = 'fenix_eth_key';
+const SK_TRON = 'fenix_tron_key';
+const ERC20_TOPIC    = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const TRC20_TOPIC    = 'ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+const KNOWN_ERC20 = {
+  // ── Ethereum ──────────────────────────────────────────────────────────────
+  '0xdac17f958d2ee523a2206206994597c13d831ec7': {symbol:'USDT',  name:'Tether USD',        decimals:6},
+  '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': {symbol:'USDC',  name:'USD Coin',          decimals:6},
+  '0x6b175474e89094c44da98b954eedeac495271d0f': {symbol:'DAI',   name:'Dai Stablecoin',    decimals:18},
+  '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': {symbol:'WETH',  name:'Wrapped Ether',     decimals:18},
+  '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599': {symbol:'WBTC',  name:'Wrapped BTC',       decimals:8},
+  '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984': {symbol:'UNI',   name:'Uniswap',           decimals:18},
+  '0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0': {symbol:'MATIC', name:'Polygon',           decimals:18},
+  '0x514910771af9ca656af840dff83e8264ecf986ca': {symbol:'LINK',  name:'Chainlink',         decimals:18},
+  // ── Polygon ───────────────────────────────────────────────────────────────
+  '0xc2132d05d31c914a87c6611c10748aeb04b58e8f': {symbol:'USDT',  name:'Tether USD',        decimals:6},
+  '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359': {symbol:'USDC',  name:'USD Coin',          decimals:6},
+  '0x2791bca1f2de4661ed88a30c99a7a9449aa84174': {symbol:'USDC.e',name:'USD Coin (PoS)',    decimals:6},
+  '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619': {symbol:'WETH',  name:'Wrapped Ether',     decimals:18},
+  '0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6': {symbol:'WBTC',  name:'Wrapped BTC',       decimals:8},
+  '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270': {symbol:'WMATIC',name:'Wrapped MATIC',     decimals:18},
+  // ── Base ──────────────────────────────────────────────────────────────────
+  '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': {symbol:'USDC',  name:'USD Coin',          decimals:6},
+  '0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca': {symbol:'USDbC', name:'USD Base Coin',     decimals:6},
+  '0x4200000000000000000000000000000000000006': {symbol:'WETH',  name:'Wrapped Ether',     decimals:18},
+  '0x50c5725949a6f0c72e6c4a641f24049a917db0cb': {symbol:'DAI',   name:'Dai Stablecoin',    decimals:18},
+  // ── BSC ───────────────────────────────────────────────────────────────────
+  '0x55d398326f99059ff775485246999027b3197955': {symbol:'USDT',  name:'Tether USD (BSC)',  decimals:18},
+  '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d': {symbol:'USDC',  name:'USD Coin (BSC)',    decimals:18},
+  '0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3': {symbol:'DAI',   name:'Dai Stablecoin (BSC)', decimals:18},
+  '0x2170ed0880ac9a755fd29b2688956bd959f933f8': {symbol:'ETH',   name:'Ethereum (BSC)',    decimals:18},
+  '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c': {symbol:'WBNB',  name:'Wrapped BNB',       decimals:18},
+  // ── Arbitrum ──────────────────────────────────────────────────────────────
+  '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': {symbol:'USDT',  name:'Tether USD',        decimals:6},
+  '0xaf88d065e77c8cc2239327c5edb3a432268e5831': {symbol:'USDC',  name:'USD Coin',          decimals:6},
+  '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8': {symbol:'USDC.e',name:'USD Coin (Bridged)',decimals:6},
+  '0x82af49447d8a07e3bd95bd0d56f35241523fbab1': {symbol:'WETH',  name:'Wrapped Ether',     decimals:18},
+  '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f': {symbol:'WBTC',  name:'Wrapped BTC',       decimals:8},
+};
+
+const KNOWN_TRC20 = {
+  'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t': {symbol:'USDT', name:'Tether USD',   decimals:6},
+  'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8': {symbol:'USDC', name:'USD Coin',      decimals:6},
+  'TNUC9Qb1rRpN8bg48KEGF9vRwPVJfVRAVV': {symbol:'WTRX', name:'Wrapped TRX',  decimals:6},
+  'TKfjV9RNKJJCqPvBtK8L7Knykh7DNWvnYt': {symbol:'WBTC', name:'Wrapped BTC',  decimals:8},
+  'TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7': {symbol:'WIN',  name:'WINkLink',     decimals:6},
+  'TF17BgPaZYbz8oxbjhriubPDsA7ArKoLX3': {symbol:'USDJ', name:'JUST Stablecoin', decimals:18},
+  'TCFLL5dx5ZJdKnWuesXxi1VPwjLVmWZZy9': {symbol:'JST',  name:'JUST',         decimals:18},
+  'TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9': {symbol:'BTT',  name:'BitTorrent',   decimals:6},
+};
+
+const ETH_METHODS = {
+  '0xa9059cbb':'transfer','0x095ea7b3':'approve','0x23b872dd':'transferFrom',
+  '0xd0e30db0':'deposit','0x2e1a7d4d':'withdraw',
+};
+
+const KNOWN_PROTOCOLS = {
+  // ── Uniswap ───────────────────────────────────────────────────────────────
+  '0x7a250d5630b4cf539739df2c5dacb4c659f2488d': {name:'Uniswap V2 Router'},
+  '0xe592427a0aece92de3edee1f18e0157c05861564': {name:'Uniswap V3 Router'},
+  '0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45': {name:'Uniswap V3 Router 2'},
+  '0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad': {name:'Uniswap Universal Router'},
+  '0x000000000022d473030f116ddee9f6b43ac78ba3': {name:'Uniswap Permit2'},
+  // ── SushiSwap ─────────────────────────────────────────────────────────────
+  '0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f': {name:'SushiSwap Router'},
+  '0x1b02da8cb0d097eb8d57a175b88c7d8b47997506': {name:'SushiSwap Router (Arbitrum/Polygon)'},
+  '0x6kaeb17b38fa1d7c87052aa0e7f63932ce2e7994': {name:'SushiSwap RouteProcessor'},
+  // ── PancakeSwap ───────────────────────────────────────────────────────────
+  '0x10ed43c718714eb63d5aa57b78b54704e256024e': {name:'PancakeSwap V2 Router'},
+  '0x13f4ea83d0bd40e75c8222255bc855a974568dd4': {name:'PancakeSwap V3 Router'},
+  // ── Curve Finance ─────────────────────────────────────────────────────────
+  '0x99a58482bd75cbab83b27ec03ca68ff489b5788f': {name:'Curve Router'},
+  '0xd51a44d3fae010294c616388b506acda1bfaae46': {name:'Curve Tricrypto Pool'},
+  '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7': {name:'Curve 3Pool'},
+  // ── 1inch ─────────────────────────────────────────────────────────────────
+  '0x1111111254eeb25477b68fb85ed929f73a960582': {name:'1inch V5 Aggregator'},
+  '0x111111125421ca6dc452d289314280a0f8842a65': {name:'1inch V6 Aggregator'},
+  // ── Paraswap ──────────────────────────────────────────────────────────────
+  '0xdef171fe48cf0115b1d80b88dc8eab59176fee57': {name:'Paraswap V5'},
+  '0x6a000f20005980200259b80c5102003040001068': {name:'Paraswap V6'},
+  // ── Stargate (Bridge) ─────────────────────────────────────────────────────
+  '0x8731d54e9d02c286767d56ac03e8037c07e01e98': {name:'Stargate Bridge (Ethereum)'},
+  '0x45a01e4e04f14f7a4a6702c74187c5f6222033cd': {name:'Stargate Bridge (Polygon)'},
+  '0x53bf833a5d6c4dda888f69c22c88c9f356a41614': {name:'Stargate Bridge (Arbitrum)'},
+  '0x9d1b1669c73b033dfe47ae5a0164ab96df25b944': {name:'Stargate Bridge (Base)'},
+  // ── Across Protocol (Bridge) ──────────────────────────────────────────────
+  '0x5c7bcd6e7de5423a257d81b442095a1a6ced35c5': {name:'Across Bridge V2'},
+  '0xe35e9842fceaca96570b734083f4a58e8f7c5f2a': {name:'Across Bridge V3'},
+  // ── Hop Protocol (Bridge) ─────────────────────────────────────────────────
+  '0xb8901acb165ed027e32754e0ffe830802919727f': {name:'Hop Bridge (ETH)'},
+  '0x3666f603cc164936c1b87e207f36beba4ac5f18a': {name:'Hop Bridge (USDC)'},
+  '0x3e4a3a4796d16c0cd582c382691998f7c06420b6': {name:'Hop Bridge (USDT)'},
+  // ── Celer cBridge ─────────────────────────────────────────────────────────
+  '0x5427fefa711eff984124bfbb1ab6fbf5e3da1820': {name:'Celer cBridge'},
+  // ── Synapse (Bridge) ──────────────────────────────────────────────────────
+  '0x2796317b0ff8538f253012862c06787adfb8ceb6': {name:'Synapse Bridge'},
+  // ── Multichain / Anyswap (Bridge) ─────────────────────────────────────────
+  '0xba8da9dcf11b50b03fd5284f164ef5cdef910705': {name:'Multichain Bridge'},
+  // ── Orbiter Finance (Bridge) ──────────────────────────────────────────────
+  '0x80c67432656d59144ceff962e8faf8926599bcf8': {name:'Orbiter Finance Bridge'},
+  // ── deBridge ──────────────────────────────────────────────────────────────
+  '0x43de2d77bf8027e25dbd179b491e8d64f38398aa': {name:'deBridge Gate'},
+  // ── Chainflip ─────────────────────────────────────────────────────────────
+  '0x0f5b8a68e832ea75a4b72e29fe83e7bcc1c870d4': {name:'Chainflip Vault'},
+  // ── Bitget Bridge ─────────────────────────────────────────────────────────
+  '0x9ff38a7e3ccab22c6c8f83e7592c4d01c1b19ac9': {name:'Bitget Bridge'},
+  // ── Socket / Bungee (Bridge) ──────────────────────────────────────────────
+  '0x3a23f943181408eac424116af7b7790c94cb97a5': {name:'Socket Bridge'},
+  // ── Relay Bridge ──────────────────────────────────────────────────────────
+  '0xa5f565650890fba1824ee0f21ebbbf660a179934': {name:'Relay Bridge'},
+  // ── Tron — JustSwap / SunSwap ─────────────────────────────────────────────
+  'TXF6bqPsSmGHFGTGVcaABAwKXnP4GqSEXX': {name:'JustSwap (SunSwap) Router'},
+  'TKzxdSv2FZKQrEqkKVgp5DcwEXBEKMg2Ax': {name:'SunSwap V2 Router'},
+  'TTrsryGJFkT5Fkf7nkNtNPLxGTSmBBDL2E': {name:'SunSwap V3 Router'},
+};
+
+/* =============================================================
+   GERENCIAMENTO DE CHAVES DE API (sessionStorage)
+   ============================================================= */
+function loadKeysFromSession() {
+  apiKeys.ethereum = sessionStorage.getItem(SK_ETH)  || '';
+  apiKeys.tron     = sessionStorage.getItem(SK_TRON) || '';
+}
+
+function openKeyModal() {
+  document.getElementById('modalEthKey').value  = apiKeys.ethereum;
+  document.getElementById('modalTronKey').value = apiKeys.tron;
+  updateModalIndicators();
+  document.getElementById('keyModal').classList.add('open');
+}
+function closeKeyModal() {
+  document.getElementById('keyModal').classList.remove('open');
+}
+function handleModalOverlayClick(e) {
+  if (e.target === document.getElementById('keyModal')) closeKeyModal();
+}
+
+function saveKeys() {
+  const eth  = document.getElementById('modalEthKey').value.trim();
+  const tron = document.getElementById('modalTronKey').value.trim();
+  apiKeys.ethereum = eth;
+  apiKeys.tron     = tron;
+  if (eth)  sessionStorage.setItem(SK_ETH,  eth);  else sessionStorage.removeItem(SK_ETH);
+  if (tron) sessionStorage.setItem(SK_TRON, tron); else sessionStorage.removeItem(SK_TRON);
+  updateKeyStatus();
+  closeKeyModal();
+}
+
+function clearKeys() {
+  apiKeys.ethereum = ''; apiKeys.tron = '';
+  sessionStorage.removeItem(SK_ETH); sessionStorage.removeItem(SK_TRON);
+  document.getElementById('modalEthKey').value  = '';
+  document.getElementById('modalTronKey').value = '';
+  updateModalIndicators();
+  updateKeyStatus();
+}
+
+function parseKeysFromText(text) {
+  const result = {};
+  text.split(/\r?\n/).forEach(line => {
+    const m = line.match(/^\s*([\w]+)\s*=\s*(.+)\s*$/);
+    if (!m) return;
+    const key = m[1].toLowerCase().trim();
+    const val = m[2].trim();
+    if (key === 'etherscan') result.etherscan = val;
+    else if (key === 'trongrid') result.trongrid = val;
+  });
+  return result;
+}
+
+function applyParsedKeys(parsed) {
+  if (parsed.etherscan) document.getElementById('modalEthKey').value  = parsed.etherscan;
+  if (parsed.trongrid)  document.getElementById('modalTronKey').value = parsed.trongrid;
+  updateModalIndicators();
+}
+
+function loadKeysFromFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    applyParsedKeys(parseKeysFromText(e.target.result));
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function handleKeyFileDrop(event) {
+  event.preventDefault();
+  document.getElementById('keyDropZone').style.borderColor = '';
+  const file = Array.from(event.dataTransfer.files).find(f => f.name.endsWith('.txt'));
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => applyParsedKeys(parseKeysFromText(e.target.result));
+  reader.readAsText(file);
+}
+
+function updateModalIndicators() {
+  const e = document.getElementById('modalEthKey').value.trim();
+  const t = document.getElementById('modalTronKey').value.trim();
+  const indEth  = document.getElementById('indEth');
+  const indTron = document.getElementById('indTron');
+  if (indEth)  indEth.classList.toggle('set', !!e);
+  if (indTron) indTron.classList.toggle('set', !!t);
+}
+
+function updateKeyStatus() {
+  const dotEth  = document.getElementById('dotEth');
+  const dotTron = document.getElementById('dotTron');
+  if (dotEth)  dotEth.classList.toggle('on-eth', !!apiKeys.ethereum);
+  if (dotTron) dotTron.classList.toggle('on-trx', !!apiKeys.tron);
+  const warn = document.getElementById('keyWarning');
+  if (warn) warn.style.display = apiKeys.ethereum ? 'none' : 'block';
+}
+
+/* =============================================================
+   UTILITÁRIOS
+   ============================================================= */
+function esc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Rótulo amigável e símbolo nativo de cada rede
+function networkLabel(n) { return {ethereum:'Ethereum', tron:'Tron', bitcoin:'Bitcoin'}[n] || n; }
+function nativeSymbol(n) { return {ethereum:'ETH', tron:'TRX', bitcoin:'BTC'}[n] || ''; }
+
+function getTx(id) {
+  return reportTransactions.find(t => t.id === id);
+}
+
+// Formata timestamp Unix em data/hora UTC e Brasília
+function formatTimestamp(unixTs) {
+  const d = new Date(unixTs * 1000);
+  const utc = d.toISOString().replace('T',' ').replace('.000Z',' UTC');
+  const br  = d.toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo',
+    day:'2-digit',month:'2-digit',year:'numeric',
+    hour:'2-digit',minute:'2-digit',second:'2-digit'}) + ' (Brasília)';
+  return { utc, brazil: br };
+}
+
+// Formata valor em inteiro com decimais (BigInt-safe)
+function formatAmount(rawValue, decimals) {
+  if (rawValue === null || rawValue === undefined || rawValue === '') return '0';
+  try {
+    const val = BigInt(rawValue);
+    if (decimals === 0) return val.toString();
+    const dec = BigInt(decimals);
+    const divisor = BigInt(10) ** dec;
+    const whole   = val / divisor;
+    const frac    = val % divisor;
+    if (frac === 0n) return whole.toString();
+    const fracStr = frac.toString().padStart(decimals,'0').replace(/0+$/,'');
+    return `${whole}.${fracStr}`;
+  } catch {
+    return String(rawValue);
+  }
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/* =============================================================
+   METADADOS DO RELATÓRIO
+   ============================================================= */
+function updateMeta() {
+  reportMeta.name        = document.getElementById('mName').value;
+  reportMeta.procedure   = document.getElementById('mProc').value;
+  reportMeta.operator    = document.getElementById('mOper').value;
+  reportMeta.unit        = document.getElementById('mUnit').value;
+  reportMeta.institution = document.getElementById('mInst').value;
+  reportMeta.context     = (document.getElementById('mContext')?.value || '').trim();
+}
+
+/* =============================================================
+   CRUD DE TRANSAÇÕES
+   ============================================================= */
+
+// Cria objeto de transação vazio
+function createTxObj(network = 'ethereum') {
+  return {
+    id: `tx-${++txCounter}`,
+    network,
+    txid: '',
+    queryStatus: 'idle',   // idle | loading | done | error | manual
+    explorerUrl: '',
+    txStatus: '',          // SUCCESS | FAILED | UNKNOWN
+    datetimeUTC: '',
+    datetimeBrazil: '',
+    from: '', to: '',
+    asset: '', amount: '',
+    tokenContract: '', nativeAmount: '', fee: '',
+    // Campos do modelo UTXO (Bitcoin): N entradas e M saídas
+    inputs: [], outputs: [], totalIn: '', totalOut: '',
+    investigatedAddress: '', includeOtherAddresses: false,
+    rawData: {},
+    autoText: '', editedText: '',
+    context: '',  // contexto/observação específica desta transação
+    approved: false,
+    images: []
+  };
+}
+
+// Adiciona nova transação (começa em modo consulta)
+function addTransaction() {
+  const tx = createTxObj('ethereum');
+  reportTransactions.push(tx);
+  renderTransactionList();
+  updateReportSummary();
+  // Rola para o novo card
+  setTimeout(() => {
+    const el = document.getElementById(`tx-${tx.id}`);
+    if (el) el.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }, 100);
+}
+
+function removeTx(id) {
+  if (!confirm('Remover esta transação?')) return;
+  reportTransactions = reportTransactions.filter(t => t.id !== id);
+  renderTransactionList();
+  updateReportSummary();
+}
+
+function duplicateTx(id) {
+  const tx = getTx(id);
+  if (!tx) return;
+  const copy = JSON.parse(JSON.stringify(tx));
+  copy.id = `tx-${++txCounter}`;
+  copy.approved = false;
+  // Regenera IDs das imagens
+  copy.images = copy.images.map(img => ({...img, id:`img-${++imgCounter}`}));
+  const idx = reportTransactions.findIndex(t => t.id === id);
+  reportTransactions.splice(idx + 1, 0, copy);
+  renderTransactionList();
+  updateReportSummary();
+}
+
+function moveTxUp(id) {
+  const idx = reportTransactions.findIndex(t => t.id === id);
+  if (idx <= 0) return;
+  [reportTransactions[idx-1], reportTransactions[idx]] = [reportTransactions[idx], reportTransactions[idx-1]];
+  renderTransactionList();
+}
+
+function moveTxDown(id) {
+  const idx = reportTransactions.findIndex(t => t.id === id);
+  if (idx < 0 || idx >= reportTransactions.length - 1) return;
+  [reportTransactions[idx], reportTransactions[idx+1]] = [reportTransactions[idx+1], reportTransactions[idx]];
+  renderTransactionList();
+}
+
+function toggleApprove(id) {
+  const tx = getTx(id);
+  if (!tx) return;
+  if (!tx.approved) {
+    if (!tx.txid) { alert('Informe o TXID antes de aprovar.'); return; }
+    if (tx.queryStatus === 'idle' || tx.queryStatus === 'error') {
+      alert('Consulte ou preencha os dados da transação antes de aprovar.'); return;
+    }
+    // Salva texto atual do textarea antes de aprovar
+    const ta = document.getElementById(`ta-${id}`);
+    if (ta) tx.editedText = ta.value;
+  }
+  tx.approved = !tx.approved;
+  renderTransactionList();
+  updateReportSummary();
+}
+
+function regenerateText(id) {
+  const tx = getTx(id);
+  if (!tx) return;
+  tx.autoText = generateAutoText(tx);
+  tx.editedText = tx.autoText;
+  const ta = document.getElementById(`ta-${id}`);
+  if (ta) ta.value = tx.editedText;
+}
+
+function saveTxText(id, value) {
+  const tx = getTx(id);
+  if (tx) tx.editedText = value;
+}
+
+function saveTxContext(id, value) {
+  const tx = getTx(id);
+  if (tx) tx.context = value;
+}
+
+// Lista de endereços investigados (suporta vários: separados por linha, vírgula, ponto-e-vírgula ou espaço)
+function getBtcTargets(tx) {
+  return String(tx.investigatedAddress || '')
+    .split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
+}
+
+// Regenera o texto BTC e atualiza o textarea sem re-renderizar o card inteiro
+function regenerateBtcText(tx) {
+  tx.autoText   = generateAutoText(tx);
+  tx.editedText = tx.autoText;
+  const ta = document.getElementById(`ta-${tx.id}`);
+  if (ta) ta.value = tx.editedText;
+}
+
+// Atualiza o realce das linhas das tabelas (entradas/saídas) sem perder o foco do campo
+function refreshBtcHighlight(txId) {
+  const tx = getTx(txId);
+  if (!tx) return;
+  const targets = getBtcTargets(tx);
+  document.querySelectorAll(`#tx-${tx.id} .utxo-row[data-addr]`).forEach(row => {
+    row.classList.toggle('target', targets.includes(row.getAttribute('data-addr')));
+  });
+}
+
+function setBtcTarget(id, value) {
+  const tx = getTx(id);
+  if (!tx) return;
+  tx.investigatedAddress = value;
+  regenerateBtcText(tx);
+  refreshBtcHighlight(id);
+}
+
+function setBtcIncludeOthers(id, checked) {
+  const tx = getTx(id);
+  if (!tx) return;
+  tx.includeOtherAddresses = checked;
+  regenerateBtcText(tx);
+  // Re-renderiza para refletir o destaque dos endereços investigados nas listas
+  renderTransactionList();
+}
+
+function setTxNetwork(id, network) {
+  const tx = getTx(id);
+  if (!tx) return;
+  if (tx.queryStatus !== 'idle' && tx.queryStatus !== 'error') {
+    if (!confirm('Mudar a rede irá resetar os dados consultados. Continuar?')) return;
+    Object.assign(tx, {
+      queryStatus:'idle', txStatus:'', explorerUrl:'',
+      datetimeUTC:'', datetimeBrazil:'', from:'', to:'',
+      asset:'', amount:'', tokenContract:'', nativeAmount:'', fee:'',
+      inputs:[], outputs:[], totalIn:'', totalOut:'',
+      investigatedAddress:'', includeOtherAddresses:false,
+      rawData:{}, autoText:'', editedText:'', approved:false
+    });
+  }
+  tx.network = network;
+  renderTransactionList();
+}
+
+function setTxTxid(id, value) {
+  const tx = getTx(id);
+  if (tx) tx.txid = value.trim();
+}
+
+/* =============================================================
+   TEXTO AUTOMÁTICO EM PORTUGUÊS
+   ============================================================= */
+function formatTxDate(tx) {
+  const dateBR  = tx.datetimeBrazil || '[data/hora não disponível]';
+  const dateUTC = tx.datetimeUTC    || '[data/hora UTC não disponível]';
+  return tx.datetimeBrazil && tx.datetimeUTC
+    ? `${dateBR} (${dateUTC})`
+    : (tx.datetimeBrazil || tx.datetimeUTC || '[data/hora não disponível]');
+}
+
+function generateAutoText(tx) {
+  if (tx.network === 'bitcoin') return generateBitcoinText(tx);
+
+  const date   = formatTxDate(tx);
+  const from   = tx.from    || '[remetente]';
+  const to     = tx.to      || '[destinatário]';
+  const txid   = tx.txid    || '[hash]';
+  const netN   = networkLabel(tx.network);
+  const native = nativeSymbol(tx.network);
+
+  if (tx.txStatus === 'FAILED') {
+    return `Em ${date}, a transação ${txid} na rede ${netN} foi registrada com status de falha. ` +
+      `O endereço ${from} iniciou uma operação com destino a ${to}, porém a execução não foi concluída com êxito.`;
+  }
+
+  // Lookup de protocolo (DEX / bridge) pelo endereço `to` — usado em todos os branches
+  const proto   = KNOWN_PROTOCOLS[(tx.to || '').toLowerCase()] || KNOWN_PROTOCOLS[tx.to || ''];
+  const toLabel = proto ? `o protocolo ${proto.name} (${to})` : `o endereço ${to}`;
+
+  const hasToken = !!(tx.tokenContract || (tx.asset && tx.asset !== 'ETH' && tx.asset !== 'TRX' && tx.asset !== 'TRX nativo'));
+  if (hasToken) {
+    const sym      = tx.asset || '[token]';
+    const amount   = tx.amount || '[valor]';
+    const contract = tx.tokenContract || '[contrato]';
+    const via      = proto
+      ? `por meio do protocolo ${proto.name} — contrato ${contract} (${sym}),`
+      : `por meio do contrato ${contract} (${sym}),`;
+    return `Em ${date}, o endereço ${from} transferiu ${amount} ${sym} para ${toLabel}, ` +
+      `${via} na rede ${netN}. ` +
+      `A operação foi registrada na transação ${txid}.`;
+  }
+
+  if (tx.amount || tx.nativeAmount) {
+    const amount = tx.amount || tx.nativeAmount || '[valor]';
+    return `Em ${date}, o endereço ${from} transferiu ${amount} ${native} para ${toLabel} ` +
+      `na rede ${netN}. A operação foi registrada na transação ${txid}.`;
+  }
+
+  // Interação com contrato sem transferência detectada
+  return `Em ${date}, o endereço ${from} interagiu com ${toLabel} ` +
+    `na rede ${netN}. A operação foi registrada na transação ${txid}.`;
+}
+
+/* =============================================================
+   TEXTO AUTOMÁTICO — BITCOIN (modelo UTXO)
+   Por padrão destaca apenas o endereço investigado, citando que
+   há outros endereços envolvidos sem listá-los. Se
+   includeOtherAddresses estiver ligado (ou se não houver endereço
+   investigado), lista todas as entradas e saídas.
+   ============================================================= */
+function generateBitcoinText(tx) {
+  const txid     = tx.txid || '[hash]';
+  const inputs   = tx.inputs  || [];
+  const outputs  = tx.outputs || [];
+  const inN       = inputs.length;
+  const outN      = outputs.length;
+  const totalIn  = tx.totalIn  || '[total das entradas]';
+  const totalOut = tx.totalOut || '[total das saídas]';
+  const fee      = tx.fee || '[taxa]';
+  const targets  = getBtcTargets(tx);
+  const isTarget = addr => targets.includes(addr);
+
+  // Pluralização
+  const ent = n => n === 1 ? 'entrada' : 'entradas';
+  const sai = n => n === 1 ? 'saída'   : 'saídas';
+
+  // Frase de data: "{Brasília} [{UTC}]"; omitida quando a transação está pendente
+  const dateBR  = tx.datetimeBrazil || '';
+  const dateUTC = tx.datetimeUTC    || '';
+  const hasDate = dateBR && !dateBR.includes('não confirmada');
+  const datePhrase = hasDate ? (dateUTC ? `${dateBR} [${dateUTC}]` : dateBR) : '';
+
+  const statusTxt = tx.txStatus === 'PENDING'
+    ? ' Até o momento da consulta, a transação ainda não havia sido confirmada (pendente na mempool).'
+    : '';
+
+  // Parágrafo-base (formal): transação em primeiro, com aposto curto "(modelo UTXO)"
+  let text = `A transação ${txid} (modelo UTXO), registrada na rede Bitcoin` +
+    `${datePhrase ? ` em ${datePhrase}` : ''}, apresenta ${inN} ${ent(inN)}, totalizando ` +
+    `${totalIn} BTC, e ${outN} ${sai(outN)}, totalizando ${totalOut} BTC, com taxa de rede de ` +
+    `${fee}.${statusTxt}`;
+
+  if (targets.length) {
+    const inHits   = inputs.filter(i => isTarget(i.address));
+    const outHits  = outputs.filter(o => isTarget(o.address));
+    const sumBtc   = list => String(Number(list.reduce((s, i) => s + Number(i.amount || 0), 0).toFixed(8)));
+    // Endereços investigados distintos efetivamente presentes em cada papel
+    const inAddrs  = [...new Set(inHits.map(i => i.address))];
+    const outAddrs = [...new Set(outHits.map(o => o.address))];
+
+    if (!inHits.length && !outHits.length) {
+      text += targets.length === 1
+        ? ` O endereço investigado ${targets[0]} não consta entre as entradas ou saídas desta transação.`
+        : ` Nenhum dos endereços investigados (${targets.join(', ')}) consta entre as entradas ou saídas desta transação.`;
+    } else {
+      if (inHits.length) {
+        const lbl = inAddrs.length === 1
+          ? `O endereço investigado ${inAddrs[0]} consta`
+          : `Os endereços investigados ${inAddrs.join(', ')} constam`;
+        const papel = inAddrs.length === 1 ? 'remetente' : 'remetentes';
+        text += ` ${lbl} entre as entradas, na condição de ${papel}, contribuindo com ${sumBtc(inHits)} BTC.`;
+      }
+      if (outHits.length) {
+        const lbl = outAddrs.length === 1
+          ? `O endereço investigado ${outAddrs[0]} consta`
+          : `Os endereços investigados ${outAddrs.join(', ')} constam`;
+        const papel = outAddrs.length === 1 ? 'destinatário' : 'destinatários';
+        text += ` ${lbl} entre as saídas, na condição de ${papel}, recebendo ${sumBtc(outHits)} BTC.`;
+      }
+    }
+
+    const otherIn  = inN  - inHits.length;
+    const otherOut = outN - outHits.length;
+    if (otherIn > 0 || otherOut > 0) {
+      const parts = [];
+      if (otherIn  > 0) parts.push(`${otherIn} ${otherIn ===1?'outro endereço':'outros endereços'} ${otherIn ===1?'como entrada':'como entradas'}`);
+      if (otherOut > 0) parts.push(`${otherOut} ${otherOut===1?'outro endereço':'outros endereços'} ${otherOut===1?'como saída':'como saídas'}`);
+      text += ` A operação envolveu ainda ${parts.join(' e ')}.`;
+    }
+  }
+
+  // A listagem detalhada de entradas/saídas NÃO é embutida no texto:
+  // os relatórios (prévia/PDF/DOCX) a renderizam de forma estruturada a
+  // partir de tx.inputs/tx.outputs — ver btcShowList() e os geradores.
+  return text;
+}
+
+// Decide se a listagem detalhada de entradas/saídas deve aparecer no relatório:
+// quando o switch "incluir demais endereços" está ligado OU quando não há
+// nenhum endereço investigado definido.
+function btcShowList(tx) {
+  return !!tx.includeOtherAddresses || getBtcTargets(tx).length === 0;
+}
+
+// Normaliza entradas/saídas para os geradores de relatório, marcando os investigados.
+function btcReportRows(tx) {
+  const targets = getBtcTargets(tx);
+  const map = list => (list || []).map(i => ({ addr: i.address, amt: i.amount, target: targets.includes(i.address) }));
+  return { inputs: map(tx.inputs), outputs: map(tx.outputs) };
+}
+
+/* =============================================================
+   API ETHEREUM (Etherscan V2)
+   ============================================================= */
+function buildEthUrl(params) {
+  const p = new URLSearchParams({
+    chainid: '1',
+    apikey: apiKeys.ethereum || '',
+    ...params
+  });
+  return `${ETHERSCAN_API}?${p.toString()}`;
+}
+
+async function ethFetch(params) {
+  const res = await fetch(buildEthUrl(params));
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  if (json.status === '0' && json.message && json.message !== 'No records found') {
+    throw new Error(json.result || json.message);
+  }
+  return json.result;
+}
+
+// Detecta transferência ERC20 nos logs do recibo
+function findERC20Log(receipt) {
+  for (const log of (receipt.logs || [])) {
+    const t0 = (log.topics?.[0] || '').toLowerCase();
+    if (t0 === ERC20_TOPIC.toLowerCase() && log.topics.length === 3) {
+      return {
+        contract: log.address.toLowerCase(),
+        from:  '0x' + log.topics[1].slice(-40),
+        to:    '0x' + log.topics[2].slice(-40),
+        value: log.data && log.data !== '0x' ? BigInt(log.data) : 0n
+      };
+    }
+  }
+  return null;
+}
+
+// Consulta e normaliza transação Ethereum
+async function queryEthereum(txId) {
+  if (!apiKeys.ethereum) throw new Error('Chave do Etherscan não configurada. Clique no botão "Chaves de API" para inserir.');
+
+  const [txData, receipt] = await Promise.all([
+    ethFetch({ module:'proxy', action:'eth_getTransactionByHash', txhash: txId }),
+    ethFetch({ module:'proxy', action:'eth_getTransactionReceipt', txhash: txId })
+  ]);
+
+  if (!txData || !txData.hash) throw new Error('Transação não encontrada no Etherscan.');
+
+  const block = await ethFetch({ module:'proxy', action:'eth_getBlockByNumber', tag: txData.blockNumber, boolean:'false' });
+
+  const ts   = parseInt(block.timestamp, 16);
+  const dt   = formatTimestamp(ts);
+  const weiValue = BigInt(txData.value || '0');
+  const gasUsed  = BigInt(receipt.gasUsed || '0');
+  const gasPrice = BigInt(txData.gasPrice || '0');
+  const feeWei   = gasUsed * gasPrice;
+  const txStatus = receipt.status === '0x1' ? 'SUCCESS' : 'FAILED';
+  const erc20    = findERC20Log(receipt);
+  const input    = txData.input || '0x';
+  const method   = ETH_METHODS[input.slice(0,10).toLowerCase()] || (input.length > 2 ? `${input.slice(0,10)}` : null);
+
+  let asset='ETH', amount='', tokenContract='', txFrom=txData.from, txTo=txData.to;
+
+  if (erc20) {
+    const info = KNOWN_ERC20[erc20.contract] || {symbol:'TOKEN',decimals:18};
+    asset         = info.symbol;
+    amount        = formatAmount(erc20.value, info.decimals);
+    tokenContract = erc20.contract;
+    txFrom        = erc20.from;
+    txTo          = erc20.to;
+  } else {
+    amount = formatAmount(weiValue.toString(), 18);
+  }
+
+  return {
+    txStatus,
+    from: txFrom,
+    to:   txTo,
+    asset,
+    amount,
+    tokenContract,
+    nativeAmount: formatAmount(weiValue.toString(), 18),
+    fee:  formatAmount(feeWei.toString(), 18) + ' ETH',
+    datetimeUTC:    dt.utc,
+    datetimeBrazil: dt.brazil,
+    explorerUrl: ETH_EXPLORER + txData.hash,
+    rawData: { txData, receipt, block, method }
+  };
+}
+
+/* =============================================================
+   ENDEREÇO TRON: HEX → BASE58CHECK
+   ============================================================= */
+const B58_ALPHA = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function base58Encode(bytes) {
+  let num = 0n;
+  for (const b of bytes) num = (num << 8n) | BigInt(b);
+  let result = '';
+  const base = 56n;
+  while (num > 0n) {
+    result = B58_ALPHA[Number(num % 58n)] + result;
+    num = num / 58n;
+  }
+  for (const b of bytes) {
+    if (b !== 0) break;
+    result = '1' + result;
+  }
+  return result;
+}
+
+async function sha256(data) {
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return new Uint8Array(buf);
+}
+
+async function tronHexToBase58(hex) {
+  const clean = hex.replace(/^0x/i, '').toLowerCase();
+  let normalized = clean;
+  if (normalized.length === 40) normalized = '41' + normalized;
+  else if (normalized.length === 64) normalized = '41' + normalized.slice(24);
+
+  const bytes = new Uint8Array(normalized.match(/.{2}/g).map(h => parseInt(h,16)));
+  const h1    = await sha256(bytes);
+  const h2    = await sha256(h1);
+  const full  = new Uint8Array(25);
+  full.set(bytes);
+  full.set(h2.slice(0,4), 21);
+  return base58Encode(full);
+}
+
+/* =============================================================
+   API TRON (TronGrid walletsolidity)
+   Content-Type: text/plain evita CORS preflight, permitindo uso
+   a partir de file://. TronGrid aceita o corpo JSON independente
+   do Content-Type declarado.
+   ============================================================= */
+function buildTronUrl(path) {
+  const base = `${TRONGRID_API}${path}`;
+  return apiKeys.tron ? `${base}?apikey=${encodeURIComponent(apiKeys.tron)}` : base;
+}
+
+async function tronPost(path, body) {
+  const res = await fetch(buildTronUrl(path), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error(`TronGrid HTTP ${res.status}`);
+  return res.json();
+}
+
+// Decodifica log TRC20 (async por causa da conversão de endereço)
+async function decodeTRC20Log(log) {
+  if (!log.topics || log.topics.length < 3) return null;
+  const t0 = log.topics[0];
+  if (t0 !== TRC20_TOPIC) return null;
+  const contractAddr = await tronHexToBase58('41' + log.address);
+  const from  = await tronHexToBase58('41' + log.topics[1].slice(-40));
+  const to    = await tronHexToBase58('41' + log.topics[2].slice(-40));
+  const value = log.data ? BigInt('0x' + log.data) : 0n;
+  return { contract: contractAddr, from, to, value };
+}
+
+// Consulta e normaliza transação Tron
+async function queryTron(txId) {
+  const cleanId = txId.replace(/^0x/i, '');
+
+  const [tx, txInfo] = await Promise.all([
+    tronPost('/walletsolidity/gettransactionbyid',     { value: cleanId }),
+    tronPost('/walletsolidity/gettransactioninfobyid', { value: cleanId })
+  ]);
+
+  if (!tx || !tx.txID) throw new Error('Transação não encontrada no TronGrid. Verifique o TXID e a rede.');
+
+  const ts  = Math.floor((txInfo.blockTimeStamp || 0) / 1000);
+  const dt  = ts ? formatTimestamp(ts) : { utc:'N/D', brazil:'N/D' };
+  const ret = (tx.ret || [])[0] || {};
+  const txStatus = (ret.contractRet === 'SUCCESS') ? 'SUCCESS' : (ret.contractRet ? 'FAILED' : 'UNKNOWN');
+  const contract0 = (tx.raw_data?.contract || [])[0] || {};
+  const cType = contract0.type || '';
+  const val   = contract0.parameter?.value || {};
+
+  const feeStr = txInfo.fee ? formatAmount(txInfo.fee, 6) + ' TRX' : 'N/D';
+
+  let from='', to='', asset='TRX', amount='', tokenContract='', nativeAmount='';
+
+  // Transferência nativa TRX
+  if (cType === 'TransferContract') {
+    from  = val.owner_address ? await tronHexToBase58(val.owner_address) : '';
+    to    = val.to_address    ? await tronHexToBase58(val.to_address)    : '';
+    const sunAmt = BigInt(val.amount || 0);
+    amount       = formatAmount(sunAmt, 6);
+    nativeAmount = amount;
+    asset = 'TRX';
+  }
+  // Transferência TRC10
+  else if (cType === 'TransferAssetContract') {
+    from   = val.owner_address ? await tronHexToBase58(val.owner_address) : '';
+    to     = val.to_address    ? await tronHexToBase58(val.to_address)    : '';
+    amount = formatAmount(val.amount || 0, 0);
+    asset  = val.asset_name || 'TRC10';
+  }
+  // Smart contract (inclui TRC20)
+  else if (cType === 'TriggerSmartContract') {
+    from = val.owner_address    ? await tronHexToBase58(val.owner_address)    : '';
+    to   = val.contract_address ? await tronHexToBase58(val.contract_address) : '';
+
+    const logs = txInfo.log || [];
+    for (const log of logs) {
+      const decoded = await decodeTRC20Log(log);
+      if (decoded) {
+        const info    = KNOWN_TRC20[decoded.contract] || { symbol:'TRC20', decimals:6 };
+        asset         = info.symbol;
+        amount        = formatAmount(decoded.value, info.decimals);
+        tokenContract = decoded.contract;
+        from          = decoded.from || from;
+        to            = decoded.to   || to;
+        break;
+      }
+    }
+    if (!amount) asset = 'Contrato';
+  }
+  else {
+    from = val.owner_address ? await tronHexToBase58(val.owner_address) : '';
+    to   = val.to_address    ? await tronHexToBase58(val.to_address)    : '';
+  }
+
+  return {
+    txStatus,
+    from, to, asset, amount, tokenContract, nativeAmount,
+    fee: feeStr,
+    datetimeUTC:    dt.utc,
+    datetimeBrazil: dt.brazil,
+    explorerUrl: TRON_EXPLORER + cleanId,
+    rawData: { tx, txInfo }
+  };
+}
+
+/* =============================================================
+   API BITCOIN (Blockstream Esplora + fallback mempool.space)
+   APIs públicas, gratuitas, sem chave e com CORS liberado —
+   funcionam a partir de file://. Mesmo schema Esplora (vin/vout,
+   valores em satoshis).
+   ============================================================= */
+async function btcFetch(txid) {
+  let lastErr = null;
+  for (const base of [BLOCKSTREAM_API, MEMPOOL_API]) {
+    try {
+      const res = await fetch(`${base}/tx/${txid}`);
+      if (res.ok) return await res.json();
+      lastErr = new Error(`HTTP ${res.status}`);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw new Error('Transação não encontrada no Blockstream nem no mempool.space. Verifique o TXID.');
+}
+
+// Consulta e normaliza transação Bitcoin (modelo UTXO)
+async function queryBitcoin(txId) {
+  const cleanId = txId.replace(/^0x/i, '').trim().toLowerCase();
+  const j = await btcFetch(cleanId);
+  if (!j || !j.txid) throw new Error('Transação Bitcoin não encontrada.');
+
+  const inputs = (j.vin || []).map(v => ({
+    address: v.is_coinbase ? '(coinbase / emissão de bloco)'
+           : (v.prevout && v.prevout.scriptpubkey_address) || '(script não-padrão)',
+    amount:  formatAmount((v.prevout && v.prevout.value) ?? 0, 8)
+  }));
+  const outputs = (j.vout || []).map(o => ({
+    address: o.scriptpubkey_address || '(OP_RETURN / script não-padrão)',
+    amount:  formatAmount(o.value ?? 0, 8)
+  }));
+
+  const inSat  = (j.vin  || []).reduce((s, v) => s + BigInt((v.prevout && v.prevout.value) || 0), 0n);
+  const outSat = (j.vout || []).reduce((s, o) => s + BigInt(o.value || 0), 0n);
+  const feeSat = (j.fee !== undefined && j.fee !== null) ? BigInt(j.fee) : (inSat - outSat);
+
+  const confirmed = j.status && j.status.confirmed;
+  const ts  = confirmed ? j.status.block_time : 0;
+  const dt  = ts ? formatTimestamp(ts) : { utc:'(não confirmada)', brazil:'(não confirmada)' };
+  const txStatus = confirmed ? 'SUCCESS' : 'PENDING';
+
+  // from = primeira entrada; to = saída de maior valor (referência simplificada)
+  const from = inputs.length ? inputs[0].address : '';
+  let to = outputs.length ? outputs[0].address : '';
+  let maxOut = -1n;
+  for (const o of (j.vout || [])) {
+    if (BigInt(o.value || 0) > maxOut) { maxOut = BigInt(o.value || 0); to = o.scriptpubkey_address || to; }
+  }
+
+  return {
+    txStatus,
+    from, to,
+    asset: 'BTC',
+    amount: formatAmount(outSat.toString(), 8),
+    tokenContract: '',
+    nativeAmount: formatAmount(outSat.toString(), 8),
+    fee: formatAmount(feeSat.toString(), 8) + ' BTC',
+    inputs, outputs,
+    totalIn:  formatAmount(inSat.toString(),  8),
+    totalOut: formatAmount(outSat.toString(), 8),
+    datetimeUTC:    dt.utc,
+    datetimeBrazil: dt.brazil,
+    explorerUrl: BTC_EXPLORER + cleanId,
+    rawData: { tx: j }
+  };
+}
+
+/* =============================================================
+   CONSULTAR TRANSAÇÃO (disparado pelo botão "Consultar")
+   ============================================================= */
+async function queryTransaction(id) {
+  const tx = getTx(id);
+  if (!tx) return;
+
+  const txidInput = document.getElementById(`txid-${id}`);
+  if (txidInput) tx.txid = txidInput.value.trim();
+
+  if (!tx.txid) { showTxError(id, 'Informe o TXID antes de consultar.'); return; }
+
+  // Verifica chave ETH
+  if (tx.network === 'ethereum' && !apiKeys.ethereum) {
+    showTxError(id, 'Chave do Etherscan não configurada.');
+    openKeyModal();
+    return;
+  }
+
+  tx.queryStatus = 'loading';
+  tx.errorMsg    = '';
+  renderTransactionList();
+
+  try {
+    const data = tx.network === 'ethereum' ? await queryEthereum(tx.txid)
+      : tx.network === 'bitcoin' ? await queryBitcoin(tx.txid)
+      : await queryTron(tx.txid);
+
+    Object.assign(tx, data, { queryStatus:'done' });
+    tx.autoText   = generateAutoText(tx);
+    tx.editedText = tx.editedText || tx.autoText;
+  } catch(e) {
+    tx.queryStatus = 'error';
+    tx.errorMsg    = e.message || String(e);
+  }
+
+  renderTransactionList();
+  updateReportSummary();
+}
+
+function showTxError(id, msg) {
+  const tx = getTx(id);
+  if (tx) { tx.queryStatus = 'error'; tx.errorMsg = msg; }
+  renderTransactionList();
+}
+
+/* =============================================================
+   MODO MANUAL
+   ============================================================= */
+function toggleManualMode(id) {
+  const tx = getTx(id);
+  if (!tx) return;
+  tx.queryStatus = 'manual';
+  renderTransactionList();
+}
+
+// Converte texto "endereço, valor" (uma linha por UTXO) em [{address, amount}]
+function parseUtxoLines(text) {
+  return String(text || '').split(/\r?\n/).map(line => {
+    const t = line.trim();
+    if (!t) return null;
+    const m = t.match(/^(.*?)[\s,;]+([0-9]*\.?[0-9]+)\s*(?:BTC)?$/i);
+    if (m) return { address: m[1].trim(), amount: m[2] };
+    return { address: t, amount: '0' };
+  }).filter(Boolean);
+}
+
+function confirmManual(id) {
+  const tx = getTx(id);
+  if (!tx) return;
+  const g = (field) => (document.getElementById(`m-${id}-${field}`)?.value || '').trim();
+
+  if (tx.network === 'bitcoin') {
+    const rawTxid = g('txid') || tx.txid;
+    tx.txid                = rawTxid;
+    tx.txStatus            = g('status') || 'UNKNOWN';
+    tx.investigatedAddress = g('investigated');
+    tx.fee                 = g('fee');
+    tx.datetimeUTC         = g('dtUTC');
+    tx.datetimeBrazil      = g('dtBR');
+    tx.inputs              = parseUtxoLines(g('inputs'));
+    tx.outputs             = parseUtxoLines(g('outputs'));
+    const sumBtc = list => String(Number(list.reduce((s, i) => s + Number(i.amount || 0), 0).toFixed(8)));
+    tx.totalIn             = sumBtc(tx.inputs);
+    tx.totalOut            = sumBtc(tx.outputs);
+    tx.asset               = 'BTC';
+    tx.amount              = tx.totalOut;
+    tx.from                = tx.inputs[0]?.address || '';
+    tx.to                  = tx.outputs[0]?.address || '';
+    tx.explorerUrl         = g('explorerUrl') || (BTC_EXPLORER + rawTxid);
+    tx.queryStatus         = 'done';
+    tx.autoText            = generateAutoText(tx);
+    tx.editedText          = tx.editedText || tx.autoText;
+    renderTransactionList();
+    updateReportSummary();
+    return;
+  }
+
+  const rawTxid = g('txid') || tx.txid;
+  tx.txid         = rawTxid;
+  tx.from         = g('from');
+  tx.to           = g('to');
+  tx.asset        = g('asset');
+  tx.amount       = g('amount');
+  tx.tokenContract= g('contract');
+  tx.datetimeUTC  = g('dtUTC');
+  tx.datetimeBrazil= g('dtBR');
+  tx.fee          = g('fee');
+  tx.txStatus     = g('status') || 'UNKNOWN';
+  tx.explorerUrl  = g('explorerUrl') ||
+    (tx.network === 'ethereum' ? ETH_EXPLORER + rawTxid : TRON_EXPLORER + rawTxid);
+  tx.queryStatus  = 'done';
+  tx.autoText     = generateAutoText(tx);
+  tx.editedText   = tx.editedText || tx.autoText;
+
+  renderTransactionList();
+  updateReportSummary();
+}
+
+/* =============================================================
+   IMAGENS POR TRANSAÇÃO
+   ============================================================= */
+
+// Adiciona imagem a partir de File ou Blob
+function addImageToTx(txId, file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const tx = getTx(txId);
+  if (!tx) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    tx.images.push({
+      id:       `img-${++imgCounter}`,
+      fileName: file.name || 'imagem.png',
+      mimeType: file.type,
+      dataUrl:  e.target.result,
+      caption:  ''
+    });
+    renderImageGrid(txId);
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeImage(txId, imgId) {
+  const tx = getTx(txId);
+  if (!tx) return;
+  tx.images = tx.images.filter(i => i.id !== imgId);
+  renderImageGrid(txId);
+}
+
+function moveImage(txId, imgId, dir) {
+  const tx = getTx(txId);
+  if (!tx) return;
+  const idx = tx.images.findIndex(i => i.id === imgId);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= tx.images.length) return;
+  [tx.images[idx], tx.images[newIdx]] = [tx.images[newIdx], tx.images[idx]];
+  renderImageGrid(txId);
+}
+
+function updateImgCaption(txId, imgId, caption) {
+  const tx = getTx(txId);
+  if (!tx) return;
+  const img = tx.images.find(i => i.id === imgId);
+  if (img) img.caption = caption;
+}
+
+// Renderiza apenas o grid de imagens sem re-renderizar o card inteiro
+function renderImageGrid(txId) {
+  const container = document.getElementById(`img-grid-${txId}`);
+  if (!container) return;
+  const tx = getTx(txId);
+  if (!tx) return;
+  container.innerHTML = buildImageGridHtml(tx);
+}
+
+function buildImageGridHtml(tx) {
+  if (!tx.images.length) return '';
+  return tx.images.map((img, idx) => `
+    <div class="img-thumb">
+      <img src="${esc(img.dataUrl)}" alt="${esc(img.caption||'imagem')}" onclick="previewImage('${esc(img.dataUrl)}')">
+      <input type="text" placeholder="Legenda..." value="${esc(img.caption)}"
+        oninput="updateImgCaption('${tx.id}','${img.id}',this.value)">
+      <div class="img-thumb-btns">
+        <button onclick="moveImage('${tx.id}','${img.id}',-1)" title="Mover esquerda">◀</button>
+        <button onclick="moveImage('${tx.id}','${img.id}',1)"  title="Mover direita">▶</button>
+        <button onclick="removeImage('${tx.id}','${img.id}')"  title="Remover" style="color:var(--red)">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function previewImage(dataUrl) {
+  const overlay = document.getElementById('imgPreviewOverlay');
+  document.getElementById('imgPreviewBig').src = dataUrl;
+  overlay.style.display = 'flex';
+  overlay.classList.add('open');
+}
+
+// Habilita drop zone numa div: drag-over visual + soltar arquivo
+function setupDropZone(txId) {
+  const dz = document.getElementById(`dz-${txId}`);
+  if (!dz) return;
+
+  dz.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dz.classList.add('drag-over');
+  });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    files.forEach(f => addImageToTx(txId, f));
+  });
+
+  // Paste dentro da drop zone (ou quando ela tem foco)
+  dz.addEventListener('paste', (e) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const imgItem = items.find(i => i.type.startsWith('image/'));
+    if (imgItem) { e.preventDefault(); addImageToTx(txId, imgItem.getAsFile()); }
+  });
+
+  // Rastreia último card com foco (para paste global)
+  dz.addEventListener('focusin', () => { lastFocusedTxId = txId; });
+}
+
+/* =============================================================
+   RENDERIZAÇÃO DE CARDS
+   ============================================================= */
+function renderTransactionList() {
+  const list  = document.getElementById('txList');
+  const empty = document.getElementById('txEmpty');
+  if (!list) return;
+
+  // Salva textos editados antes de re-renderizar
+  reportTransactions.forEach(tx => {
+    const ta = document.getElementById(`ta-${tx.id}`);
+    if (ta) tx.editedText = ta.value;
+  });
+
+  if (!reportTransactions.length) {
+    list.innerHTML = `<div class="empty-state" id="txEmpty">
+      <div style="font-size:2.5rem;margin-bottom:10px">⛓</div>
+      <p>Nenhuma transação adicionada.</p>
+      <p class="muted">Clique em "Adicionar Transação" para começar.</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = reportTransactions.map(buildTxCardHtml).join('');
+
+  // Configura drop zones após renderizar
+  reportTransactions.forEach(tx => setupDropZone(tx.id));
+}
+
+// Seletor de rede (Ethereum / Tron / Bitcoin) reutilizado nas seções idle, loading e manual
+function netSelectorHtml(tx, disabled = false) {
+  const nets = [['ethereum','Ethereum','active-eth'], ['tron','Tron','active-trx'], ['bitcoin','Bitcoin','active-btc']];
+  const dis = disabled ? 'disabled' : '';
+  return `<div class="net-selector">
+    ${nets.map(([net, label, cls]) =>
+      `<button class="net-btn ${tx.network===net?cls:''}" ${dis}
+        ${disabled?'':`onclick="setTxNetwork('${tx.id}','${net}')"`}>${label}</button>`).join('')}
+  </div>`;
+}
+
+function txidPlaceholder(network) {
+  return network === 'ethereum' ? 'Hash 0x...'
+    : network === 'bitcoin' ? 'TXID da transação Bitcoin'
+    : 'TXID da transação Tron';
+}
+
+function buildTxCardHtml(tx) {
+  const stateClass = tx.approved ? 'state-approved' :
+    tx.queryStatus === 'done'    ? 'state-done' :
+    tx.queryStatus === 'error'   ? 'state-error' :
+    tx.queryStatus === 'loading' ? 'state-loading' : '';
+
+  const netCls = {ethereum:'eth', tron:'trx', bitcoin:'btc'}[tx.network] || 'eth';
+  const netBadge = `<span class="net-badge ${netCls}">${nativeSymbol(tx.network)}</span>`;
+
+  const abbrev = tx.txid
+    ? tx.txid.length > 16 ? tx.txid.slice(0,8)+'…'+tx.txid.slice(-6) : tx.txid
+    : 'Nova transação';
+
+  const stBadge = tx.txStatus === 'SUCCESS' ? `<span class="st-badge ok">SUCCESS</span>`
+    : tx.txStatus === 'FAILED' ? `<span class="st-badge fail">FAILED</span>`
+    : tx.txStatus ? `<span class="st-badge unk">${esc(tx.txStatus)}</span>` : '';
+
+  const assetPill = (tx.amount || tx.asset) && tx.queryStatus === 'done'
+    ? `<span class="tx-asset-pill">${esc(tx.amount)} ${esc(tx.asset)}</span>` : '';
+
+  const apvBadge = tx.approved
+    ? `<span class="apv-badge approved">✓ Aprovada</span>`
+    : `<span class="apv-badge pending">⏳ Pendente</span>`;
+
+  const header = `
+    <div class="tx-card-header">
+      <div class="tx-head-left">
+        ${netBadge}
+        <span class="tx-hash-abbr">${esc(abbrev)}</span>
+        ${stBadge}
+        ${assetPill}
+      </div>
+      <div class="tx-head-right">
+        ${apvBadge}
+        <button class="btn btn-secondary btn-icon" onclick="moveTxUp('${tx.id}')" title="Mover para cima">↑</button>
+        <button class="btn btn-secondary btn-icon" onclick="moveTxDown('${tx.id}')" title="Mover para baixo">↓</button>
+        <button class="btn btn-secondary btn-icon" onclick="duplicateTx('${tx.id}')" title="Duplicar">⧉</button>
+        <button class="btn btn-danger btn-icon" onclick="removeTx('${tx.id}')" title="Remover">✕</button>
+      </div>
+    </div>`;
+
+  // Corpo: seção de consulta (idle ou error)
+  let querySection = '';
+  if (tx.queryStatus === 'idle' || tx.queryStatus === 'error') {
+    querySection = `
+      <div class="tx-body-section">
+        ${netSelectorHtml(tx)}
+        <div class="query-row">
+          <input id="txid-${tx.id}" placeholder="${txidPlaceholder(tx.network)}"
+            value="${esc(tx.txid)}" oninput="setTxTxid('${tx.id}',this.value)"
+            onkeydown="if(event.key==='Enter')queryTransaction('${tx.id}')">
+          <button class="btn btn-primary" onclick="queryTransaction('${tx.id}')">🔍 Consultar</button>
+          <button class="btn btn-secondary" onclick="toggleManualMode('${tx.id}')">✏ Manual</button>
+        </div>
+        ${tx.errorMsg ? `<div class="err-msg">⚠ ${esc(tx.errorMsg)}</div>` : ''}
+      </div>`;
+  }
+
+  // Carregando
+  let loadingSection = '';
+  if (tx.queryStatus === 'loading') {
+    loadingSection = `
+      <div class="tx-body-section">
+        ${netSelectorHtml(tx, true)}
+        <div class="query-row">
+          <input value="${esc(tx.txid)}" disabled style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--muted);font-family:monospace;font-size:13px">
+        </div>
+        <div class="loading-row mt8"><div class="spinner"></div> Consultando a rede ${networkLabel(tx.network)}...</div>
+      </div>`;
+  }
+
+  // Modo manual: formulário
+  let manualSection = '';
+  if (tx.queryStatus === 'manual') {
+    const inp = (field, label, placeholder, val='') =>
+      `<div class="fg"><label>${label}</label>
+       <input id="m-${tx.id}-${field}" placeholder="${placeholder}" value="${esc(val)}"></div>`;
+    const ta = (field, label, placeholder, val='') =>
+      `<div class="fg span2"><label>${label}</label>
+       <textarea id="m-${tx.id}-${field}" placeholder="${placeholder}" style="min-height:80px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:12px;font-family:monospace;resize:vertical">${esc(val)}</textarea></div>`;
+
+    let manualFields;
+    if (tx.network === 'bitcoin') {
+      const listToText = (l) => (l || []).map(i => `${i.address}, ${i.amount}`).join('\n');
+      manualFields = `
+        <div class="manual-grid">
+          ${inp('txid','TXID *','Hash da transação',tx.txid)}
+          ${inp('status','Status','SUCCESS / PENDING',tx.txStatus)}
+          ${inp('investigated','Endereço(s) investigado(s)','Um ou mais, separados por vírgula',tx.investigatedAddress)}
+          ${inp('fee','Taxa','Ex.: 0.00012 BTC',tx.fee)}
+          ${inp('dtUTC','Data/Hora UTC','Ex.: 2025-03-15 10:30:00 UTC',tx.datetimeUTC)}
+          ${inp('dtBR','Data/Hora Brasília','Ex.: 15/03/2025, 07:30:00',tx.datetimeBrazil)}
+          ${ta('inputs','Entradas (uma por linha: endereço, valor)','bc1q... , 0.5\nbc1q... , 0.25',listToText(tx.inputs))}
+          ${ta('outputs','Saídas (uma por linha: endereço, valor)','bc1q... , 0.7\nbc1q... , 0.04',listToText(tx.outputs))}
+          <div class="fg span2">${inp('explorerUrl','Link do Explorador','https://...',tx.explorerUrl)}</div>
+        </div>`;
+    } else {
+      manualFields = `
+        <div class="manual-grid">
+          ${inp('txid','TXID *','Hash da transação',tx.txid)}
+          ${inp('status','Status','SUCCESS / FAILED',tx.txStatus)}
+          ${inp('from','From (Remetente)','Endereço de origem',tx.from)}
+          ${inp('to','To (Destinatário)','Endereço de destino',tx.to)}
+          ${inp('asset','Ativo','ETH, USDT, TRX...',tx.asset)}
+          ${inp('amount','Valor','Ex.: 1.5',tx.amount)}
+          ${inp('contract','Contrato do Token','Opcional',tx.tokenContract)}
+          ${inp('fee','Taxa','Ex.: 0.001 ETH',tx.fee)}
+          ${inp('dtUTC','Data/Hora UTC','Ex.: 2025-03-15 10:30:00 UTC',tx.datetimeUTC)}
+          ${inp('dtBR','Data/Hora Brasília','Ex.: 15/03/2025, 07:30:00',tx.datetimeBrazil)}
+          <div class="fg span2">${inp('explorerUrl','Link do Explorador','https://...',tx.explorerUrl)}</div>
+        </div>`;
+    }
+
+    manualSection = `
+      <div class="tx-body-section">
+        ${netSelectorHtml(tx)}
+        ${manualFields}
+        <div class="btn-row mt12">
+          <button class="btn btn-primary" onclick="confirmManual('${tx.id}')">✓ Confirmar dados</button>
+          <button class="btn btn-secondary" onclick="setTxNetwork('${tx.id}',getTx('${tx.id}').network)">Cancelar</button>
+        </div>
+      </div>`;
+  }
+
+  // Dados da transação (após consulta bem-sucedida)
+  let dataSection = '';
+  if (tx.queryStatus === 'done' && tx.network === 'bitcoin') {
+    const targets = getBtcTargets(tx);
+    const rowHtml = (i) => {
+      const isTarget = targets.includes(i.address);
+      return `<div class="utxo-row ${isTarget?'target':''}" data-addr="${esc(i.address)}">
+        <span class="ux-addr">${esc(i.address)}</span><span class="ux-val">${esc(i.amount)} BTC</span>
+      </div>`;
+    };
+    const inRows  = (tx.inputs  || []).map(rowHtml).join('')  || '<div class="utxo-row"><span class="ux-addr muted">(nenhuma)</span></div>';
+    const outRows = (tx.outputs || []).map(rowHtml).join('') || '<div class="utxo-row"><span class="ux-addr muted">(nenhuma)</span></div>';
+    dataSection = `
+      <div class="tx-body-section">
+        <div class="tx-body-label">Dados da Transação (modelo UTXO)</div>
+        <div class="btc-target-row">
+          <label>Endereço(s) investigado(s) — um por linha ou separados por vírgula</label>
+          <textarea id="btc-target-${tx.id}" rows="2"
+            placeholder="Ex.: bc1q...&#10;1A1zP1...&#10;(realçados nas tabelas e no relatório)"
+            oninput="setBtcTarget('${tx.id}',this.value)">${esc(tx.investigatedAddress)}</textarea>
+        </div>
+        <label class="btc-switch">
+          <input type="checkbox" ${tx.includeOtherAddresses?'checked':''} onchange="setBtcIncludeOthers('${tx.id}',this.checked)">
+          Incluir os demais endereços envolvidos no texto do relatório
+        </label>
+        <div class="utxo-cols">
+          <div class="utxo-box">
+            <div class="utxo-box-title">Entradas (${(tx.inputs||[]).length}) — total ${esc(tx.totalIn)} BTC</div>
+            ${inRows}
+          </div>
+          <div class="utxo-box">
+            <div class="utxo-box-title">Saídas (${(tx.outputs||[]).length}) — total ${esc(tx.totalOut)} BTC</div>
+            ${outRows}
+          </div>
+        </div>
+        <div class="tx-data-grid">
+          <div class="df"><span class="df-lbl">Status</span><span class="df-val">${esc(tx.txStatus)}</span></div>
+          <div class="df"><span class="df-lbl">Taxa</span><span class="df-val">${esc(tx.fee)}</span></div>
+          <div class="df"><span class="df-lbl">Data/Hora UTC</span><span class="df-val">${esc(tx.datetimeUTC)}</span></div>
+          <div class="df"><span class="df-lbl">Data/Hora Brasília</span><span class="df-val">${esc(tx.datetimeBrazil)}</span></div>
+          <div class="df data-row-full"><span class="df-lbl">Explorer</span>
+            ${tx.explorerUrl
+              ? `<a href="${esc(tx.explorerUrl)}" target="_blank" class="df-val mono">${esc(tx.explorerUrl)}</a>`
+              : `<span class="df-val muted">N/D</span>`}
+          </div>
+        </div>
+        <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px"
+          onclick="resetTxToIdle('${tx.id}')">↺ Nova consulta</button>
+      </div>`;
+  }
+  else if (tx.queryStatus === 'done') {
+    dataSection = `
+      <div class="tx-body-section">
+        <div class="tx-body-label">Dados da Transação</div>
+        <div class="tx-data-grid">
+          <div class="df"><span class="df-lbl">From</span><span class="df-val mono">${esc(tx.from)}</span></div>
+          <div class="df"><span class="df-lbl">To</span><span class="df-val mono">${esc(tx.to)}</span></div>
+          <div class="df"><span class="df-lbl">Ativo</span><span class="df-val">${esc(tx.asset)}</span></div>
+          <div class="df"><span class="df-lbl">Valor</span><span class="df-val">${esc(tx.amount)} ${esc(tx.asset)}</span></div>
+          <div class="df"><span class="df-lbl">Status</span><span class="df-val">${esc(tx.txStatus)}</span></div>
+          <div class="df"><span class="df-lbl">Taxa</span><span class="df-val">${esc(tx.fee)}</span></div>
+          <div class="df"><span class="df-lbl">Data/Hora UTC</span><span class="df-val">${esc(tx.datetimeUTC)}</span></div>
+          <div class="df"><span class="df-lbl">Data/Hora Brasília</span><span class="df-val">${esc(tx.datetimeBrazil)}</span></div>
+          ${tx.tokenContract ? `<div class="df data-row-full"><span class="df-lbl">Contrato do Token</span><span class="df-val mono">${esc(tx.tokenContract)}</span></div>` : ''}
+          <div class="df data-row-full"><span class="df-lbl">Explorer</span>
+            ${tx.explorerUrl
+              ? `<a href="${esc(tx.explorerUrl)}" target="_blank" class="df-val mono">${esc(tx.explorerUrl)}</a>`
+              : `<span class="df-val muted">N/D</span>`}
+          </div>
+        </div>
+        <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px"
+          onclick="resetTxToIdle('${tx.id}')">↺ Nova consulta</button>
+      </div>`;
+  }
+
+  // Texto descritivo editável (visível quando done)
+  let textSection = '';
+  if (tx.queryStatus === 'done') {
+    const approveLabel = tx.approved
+      ? '✗ Remover aprovação'
+      : '✅ Aprovar e adicionar ao relatório';
+    const apvClass = tx.approved ? 'btn-danger' : 'btn-green';
+    textSection = `
+      <div class="tx-body-section">
+        <div class="tx-body-label">Texto Descritivo <span style="text-transform:none;font-weight:400;color:var(--muted)">(editável antes de aprovar)</span></div>
+        <textarea class="tx-text-area" id="ta-${tx.id}"
+          oninput="saveTxText('${tx.id}',this.value)">${esc(tx.editedText)}</textarea>
+        <div class="btn-row mt8">
+          <button class="btn btn-secondary" onclick="regenerateText('${tx.id}')">↺ Regenerar texto automático</button>
+          <button class="btn ${apvClass}" onclick="toggleApprove('${tx.id}')">${approveLabel}</button>
+        </div>
+      </div>`;
+  }
+
+  // Campo de contexto individual da transação (sempre visível após consulta ou manual)
+  const contextSection = (tx.queryStatus === 'done' || tx.queryStatus === 'manual') ? `
+    <div class="tx-context-box">
+      <label>Contexto / Observações desta transação <span style="text-transform:none;font-weight:400;color:var(--muted);font-size:10px">(opcional — aparece no relatório se preenchido)</span></label>
+      <textarea placeholder="Descreva o contexto específico desta transação, suspeitos envolvidos, relevância para a investigação..." oninput="saveTxContext('${tx.id}',this.value)">${esc(tx.context||'')}</textarea>
+    </div>` : '';
+
+  // Imagens
+  const imagesSection = `
+    <div class="tx-body-section">
+      <div class="tx-body-label">Imagens desta transação</div>
+      <div class="drop-zone" id="dz-${tx.id}" tabindex="0">
+        <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" multiple
+          onchange="Array.from(this.files).forEach(f=>addImageToTx('${tx.id}',f));this.value=''">
+        <div class="dz-icon">🖼</div>
+        <div>Arraste imagens aqui, cole com <kbd>Ctrl+V</kbd> ou clique para selecionar</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">PNG · JPG · WEBP</div>
+      </div>
+      <div class="img-grid" id="img-grid-${tx.id}">${buildImageGridHtml(tx)}</div>
+    </div>`;
+
+  return `<div class="tx-card ${stateClass}" id="tx-${tx.id}" data-id="${tx.id}">
+    ${header}
+    <div class="tx-card-body">
+      ${querySection}
+      ${loadingSection}
+      ${manualSection}
+      ${dataSection}
+      ${textSection}
+      ${contextSection}
+      ${imagesSection}
+    </div>
+  </div>`;
+}
+
+function resetTxToIdle(id) {
+  const tx = getTx(id);
+  if (!tx) return;
+  tx.queryStatus = 'idle';
+  tx.errorMsg    = '';
+  renderTransactionList();
+}
+
+/* =============================================================
+   RESUMO DO RELATÓRIO
+   ============================================================= */
+function updateReportSummary() {
+  const total    = reportTransactions.length;
+  const approved = reportTransactions.filter(t => t.approved).length;
+  const el = document.getElementById('reportSummary');
+  if (!el) return;
+  if (!total) {
+    el.innerHTML = '<span class="muted">Nenhuma transação adicionada ainda.</span>';
+    return;
+  }
+  const col = approved > 0 ? 'var(--green)' : 'var(--orange)';
+  el.innerHTML = `
+    <div class="summary-row">
+      <span class="summary-count" style="color:${col}">${approved}</span>
+      <span>de <strong>${total}</strong> transação(ões) aprovada(s) para o relatório</span>
+      ${total - approved > 0 ? `<span style="color:var(--muted);font-size:12px">${total-approved} pendente(s)</span>` : ''}
+    </div>`;
+}
+
+/* =============================================================
+   PRÉVIA DO RELATÓRIO
+   ============================================================= */
+const INTRO_TEXT = 'O presente relatório tem por finalidade consolidar informações objetivas relativas a transações registradas em redes públicas de criptoativos, com base em dados obtidos por meio de exploradores de blockchain. As informações abaixo reproduzem dados técnicos extraídos das respectivas transações, incluindo endereços envolvidos, ativos movimentados, datas, horários, hashes e links de consulta pública.';
+
+// Listas de entradas/saídas (Bitcoin) para a prévia HTML; investigados realçados
+function btcListHtmlForPreview(tx) {
+  if (tx.network !== 'bitcoin' || !btcShowList(tx)) return '';
+  const { inputs, outputs } = btcReportRows(tx);
+  const rowsHtml = rows => rows.length
+    ? rows.map(r => `<tr class="${r.target ? 't' : ''}">
+        <td>${esc(r.addr)}${r.target ? '<span class="tag">investigado</span>' : ''}</td>
+        <td class="v">${esc(r.amt)} BTC</td></tr>`).join('')
+    : `<tr><td colspan="2" style="color:#888">(nenhuma)</td></tr>`;
+  return `<div class="utxo-rep">
+    <h4>Entradas (${inputs.length}) — total ${esc(tx.totalIn || '0')} BTC</h4>
+    <table>${rowsHtml(inputs)}</table>
+    <h4>Saídas (${outputs.length}) — total ${esc(tx.totalOut || '0')} BTC</h4>
+    <table>${rowsHtml(outputs)}</table>
+  </div>`;
+}
+
+function buildPreviewHtml() {
+  const approved = reportTransactions.filter(t => t.approved);
+  const now = new Date().toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'});
+
+  let txHtml = '';
+  approved.forEach((tx, i) => {
+    const imgHtml = tx.images.map((img, j) => `
+      <div class="tx-img-block">
+        <div><strong>Imagem ${j+1}:</strong></div>
+        <img src="${img.dataUrl}" alt="${img.caption || 'imagem'}">
+        ${img.caption ? `<div class="tx-img-caption">Legenda: ${img.caption}</div>` : ''}
+      </div>`).join('');
+
+    const dt = tx.datetimeBrazil
+      ? `${tx.datetimeBrazil}${tx.datetimeUTC ? ` [${tx.datetimeUTC}]` : ''}`
+      : (tx.datetimeUTC || '');
+
+    const ctxHtml = (tx.context || '').trim()
+      ? `<p><strong>Contexto:</strong></p><div class="tx-text-p" style="background:#f0f7ff;border-color:#bcd"><em>${esc(tx.context).replace(/\n/g,'<br>')}</em></div>`
+      : '';
+
+    txHtml += `
+      <div class="tx-block">
+        <h3>Transação ${i+1}</h3>
+        <div class="tx-fields">
+          <div class="fld"><b>Rede:</b> ${networkLabel(tx.network)}</div>
+          ${tx.txStatus ? `<div class="fld"><b>Status:</b> ${tx.txStatus}</div>` : ''}
+          ${dt ? `<div class="fld"><b>Data/hora:</b> ${dt}</div>` : ''}
+          ${tx.fee ? `<div class="fld"><b>Taxa de rede:</b> ${tx.fee}</div>` : ''}
+          <div class="fld"><b>Hash:</b> ${tx.txid || 'N/D'}</div>
+          ${tx.explorerUrl ? `<div class="fld"><b>Explorador:</b> <a href="${tx.explorerUrl}" target="_blank">${tx.explorerUrl}</a></div>` : ''}
+        </div>
+        ${ctxHtml}
+        <p><strong>Descrição:</strong></p>
+        <div class="tx-text-p">${esc(tx.editedText || tx.autoText || '').replace(/\n/g,'<br>')}</div>
+        ${btcListHtmlForPreview(tx)}
+        ${imgHtml}
+      </div>`;
+  });
+
+  if (!approved.length) {
+    txHtml = '<p style="color:#888">Nenhuma transação aprovada.</p>';
+  }
+
+  // Cabeçalho: logo e contexto
+  const logoHtml = reportMeta.logoDataUrl
+    ? `<div style="text-align:center;margin-bottom:10px"><img src="${reportMeta.logoDataUrl}" style="max-height:80px;max-width:220px;object-fit:contain" alt="Logo"></div>`
+    : '';
+  const ctxReport = (reportMeta.context || '').trim()
+    ? `<div class="intro-text" style="background:#fff8f0;border-color:#f0c060;margin-top:10px"><strong>Contexto do Relatório:</strong><br>${esc(reportMeta.context).replace(/\n/g,'<br>')}</div>`
+    : '';
+
+  // Assinatura
+  let sigHtml = '';
+  if (reportSignature) {
+    sigHtml = `
+      <div style="margin-top:20px;padding:12px;border:1px solid #ccc;border-radius:6px;font-size:11px;font-family:monospace;background:#f9f9f9">
+        <strong style="font-family:sans-serif;font-size:12px">Assinatura Digital do Analista</strong><br><br>
+        <b>Identificador:</b> ${esc(reportSignature.identifier)}<br>
+        <b>Chave Pública:</b> ${esc(reportSignature.publicKey)}<br>
+        <b>Hash do Relatório (SHA-256):</b> ${esc(reportSignature.reportHash)}<br>
+        <b>Assinatura:</b> ${esc(reportSignature.signature)}<br>
+        <b>Timestamp:</b> ${esc(reportSignature.timestamp)}
+      </div>`;
+  }
+
+  return `
+    ${logoHtml}
+    <h1>${reportMeta.name || 'Relatório de Transações de Criptoativos'}</h1>
+    <table class="meta-table">
+      ${reportMeta.procedure  ? `<tr><td>Procedimento:</td><td>${reportMeta.procedure}</td></tr>` : ''}
+      ${reportMeta.operator   ? `<tr><td>Operador:</td><td>${reportMeta.operator}</td></tr>` : ''}
+      ${reportMeta.unit       ? `<tr><td>Unidade:</td><td>${reportMeta.unit}</td></tr>` : ''}
+      ${reportMeta.institution? `<tr><td>Instituição:</td><td>${reportMeta.institution}</td></tr>` : ''}
+      <tr><td>Data de geração:</td><td>${now}</td></tr>
+      <tr><td>Total de transações:</td><td>${approved.length}</td></tr>
+    </table>
+    ${ctxReport}
+    <div class="intro-text">${INTRO_TEXT}</div>
+    <h2>Transações</h2>
+    ${txHtml}
+    ${sigHtml}`;
+}
+
+function showPreview() {
+  const approved = reportTransactions.filter(t => t.approved);
+  if (!approved.length) { alert('Adicione e aprove pelo menos uma transação antes de gerar a prévia.'); return; }
+  document.getElementById('previewContent').innerHTML = buildPreviewHtml();
+  document.getElementById('previewModal').classList.add('open');
+}
+
+function closePreview() {
+  document.getElementById('previewModal').classList.remove('open');
+}
+
+/* =============================================================
+   GERAÇÃO DE PDF (jsPDF programático — sem html2canvas)
+   ============================================================= */
+async function generatePDF() {
+  const approved = reportTransactions.filter(t => t.approved);
+  if (!approved.length) { alert('Aprove pelo menos uma transação antes de gerar o PDF.'); return; }
+  if (!window.jspdf) { alert('Biblioteca jsPDF não carregou. Verifique sua conexão e tente novamente.'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+
+  // Margens (esquerda maior para encadernação) e área útil
+  const mL=23, mR=18, mT=22, mB=20;
+  const pW=210, pH=297;
+  const cW = pW - mL - mR; // largura do conteúdo
+  const bottom = pH - mB;  // limite inferior do corpo
+  let y = mT;
+
+  // Paleta
+  const C = {
+    ink:[28,28,30], sub:[70,70,75], muted:[120,120,125],
+    rule:[205,205,210], accent:[176,99,12], link:[40,80,160], headbar:[44,62,90]
+  };
+
+  const pt2mm = pt => pt * 0.3528;
+  const leading = size => pt2mm(size) * 1.42; // entrelinha confortável
+
+  function setFont(size, color, style='normal') {
+    doc.setFontSize(size);
+    doc.setTextColor(...color);
+    doc.setFont('helvetica', style);
+  }
+  function newPage() { doc.addPage(); y = mT; }
+  function ensure(space) { if (y + space > bottom) newPage(); }
+
+  // Linha divisória fina com respiros configuráveis
+  function rule(gapBefore=2, gapAfter=4, color=C.rule, w=0.2) {
+    y += gapBefore;
+    ensure(1);
+    doc.setDrawColor(...color); doc.setLineWidth(w);
+    doc.line(mL, y, pW-mR, y);
+    y += gapAfter;
+  }
+
+  // Parágrafo com quebra de linha, entrelinha e (opcional) justificação,
+  // ciente de quebra de página. align: 'left' | 'center' | 'justify'
+  function para(text, { size=10, color=C.ink, style='normal', indent=0, align='left', gapAfter=0 } = {}) {
+    setFont(size, color, style);
+    const maxW = cW - indent;
+    const lines = doc.splitTextToSize(String(text == null ? '' : text), maxW);
+    const lh = leading(size);
+    for (let k=0; k<lines.length; k++) {
+      ensure(lh);
+      const isLast = k === lines.length - 1;
+      if (align === 'justify' && !isLast && lines[k].trim().includes(' ')) {
+        doc.text(lines[k], mL+indent, y, { maxWidth: maxW, align:'justify' });
+      } else if (align === 'center') {
+        doc.text(lines[k], pW/2, y, { align:'center' });
+      } else {
+        doc.text(lines[k], mL+indent, y);
+      }
+      y += lh;
+    }
+    y += gapAfter;
+  }
+
+  // Campo rotulado: "Rótulo: valor" (rótulo em negrito), valor pode quebrar com recuo pendente
+  function field(label, value, { size=10, link=false } = {}) {
+    const lh = leading(size);
+    setFont(size, C.sub, 'bold');
+    const lw = doc.getTextWidth(label + ' ');
+    setFont(size, link ? C.link : C.ink, 'normal');
+    const valLines = doc.splitTextToSize(String(value == null ? '' : value), cW - lw);
+    ensure(lh);
+    setFont(size, C.sub, 'bold'); doc.text(label, mL, y);
+    setFont(size, link ? C.link : C.ink, 'normal'); doc.text(valLines[0] || '', mL + lw, y);
+    y += lh;
+    for (let k=1; k<valLines.length; k++) {
+      ensure(lh);
+      doc.text(valLines[k], mL + lw, y);
+      y += lh;
+    }
+  }
+
+  // Cabeçalho de transação: título em negrito com filete de destaque
+  function txHeading(text) {
+    ensure(leading(12) + 6);
+    y += 1.5;
+    setFont(12, C.ink, 'bold');
+    doc.text(text, mL, y);
+    y += 2;
+    doc.setDrawColor(...C.accent); doc.setLineWidth(0.5);
+    doc.line(mL, y, pW-mR, y);
+    y += 4.5;
+  }
+
+  // Bloco de entradas/saídas (Bitcoin): endereço à esquerda, valor à direita,
+  // investigados em destaque (cor de acento + negrito + etiqueta).
+  function utxoBlock(title, rows) {
+    const lhT = leading(10), lh = leading(9);
+    ensure(lhT + lh);
+    setFont(10, C.sub, 'bold'); doc.text(title, mL, y); y += lhT;
+    if (!rows.length) {
+      setFont(9, C.muted, 'italic'); ensure(lh); doc.text('(nenhuma)', mL+3, y); y += lh; y += 1.5; return;
+    }
+    const valX = pW - mR;
+    for (const r of rows) {
+      ensure(lh);
+      const valStr = `${r.amt} BTC`;
+      const tag = r.target ? '   (investigado)' : '';
+      const valW = doc.getTextWidth(valStr);
+      const addrMaxW = cW - valW - 4;
+      // Recorta endereços excessivamente longos para não colidir com o valor
+      setFont(9, r.target ? C.accent : C.ink, r.target ? 'bold' : 'normal');
+      let addrText = '-  ' + r.addr + tag;
+      if (doc.getTextWidth(addrText) > addrMaxW) {
+        addrText = doc.splitTextToSize(addrText, addrMaxW)[0];
+      }
+      doc.text(addrText, mL+1, y);
+      setFont(9, r.target ? C.accent : C.sub, r.target ? 'bold' : 'normal');
+      doc.text(valStr, valX, y, { align:'right' });
+      y += lh;
+    }
+    y += 2;
+  }
+
+  // Carrega imagem e a insere no PDF.
+  // Regra de altura: altura preferencial = 6cm (largura proporcional, centralizada).
+  // Se a imagem não couber no fim da página, é permitido reduzir a altura
+  // até no mínimo 4cm para que caiba na MESMA página; se ainda assim não
+  // couber (ou ficaria menor que 4cm), quebra para nova página usando 6cm.
+  const IMG_H_PREF = 60; // 6cm em mm
+  const IMG_H_MIN  = 40; // 4cm em mm
+  const CAPTION_RESERVE = 6; // espaço reservado abaixo da imagem (legenda/respiro)
+
+  async function addImgToPdf(dataUrl) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const ratio = img.naturalWidth / img.naturalHeight; // largura/altura
+
+        // Calcula largura para uma dada altura, limitando à largura útil (cW)
+        const sizeFor = (h) => {
+          let w = h * ratio;
+          if (w > cW) { w = cW; h = w / ratio; }
+          return { w, h };
+        };
+
+        // Espaço vertical disponível até a margem inferior
+        const avail = (pH - mB) - y;
+
+        let chosen;
+        const pref = sizeFor(IMG_H_PREF);
+
+        if (pref.h + CAPTION_RESERVE <= avail) {
+          // Cabe com altura preferencial (6cm) na página atual
+          chosen = pref;
+        } else {
+          // Tenta encolher até no máximo 4cm para caber na mesma página
+          const fitH = avail - CAPTION_RESERVE; // altura máxima que ainda cabe aqui
+          if (fitH >= IMG_H_MIN) {
+            chosen = sizeFor(fitH);
+          } else {
+            // Não cabe nem reduzindo: nova página com 6cm
+            newPage();
+            chosen = pref;
+          }
+        }
+
+        try {
+          // Reencoda para PNG via canvas (garante suporte a WEBP e demais formatos)
+          let src = dataUrl, fmt = 'PNG';
+          if (!dataUrl.startsWith('data:image/png')) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            src = canvas.toDataURL('image/png');
+          }
+          const x = mL + (cW - chosen.w) / 2; // centraliza horizontalmente
+          doc.addImage(src, fmt, x, y, chosen.w, chosen.h);
+          y += chosen.h + 4;
+        } catch(e) { /* imagem ignorada se falhar */ }
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = dataUrl;
+    });
+  }
+
+  // === CABEÇALHO DO RELATÓRIO ===
+  const now = new Date().toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'});
+
+  // Logo da instituição
+  if (reportMeta.logoDataUrl) {
+    await new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const ratio = img.naturalWidth / img.naturalHeight;
+          let lh = 22, lw = lh * ratio;
+          if (lw > 60) { lw = 60; lh = lw / ratio; }
+          const lx = pW/2 - lw/2;
+          let src = reportMeta.logoDataUrl, fmt='PNG';
+          if (!reportMeta.logoDataUrl.startsWith('data:image/png')) {
+            const cv = document.createElement('canvas');
+            cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+            cv.getContext('2d').drawImage(img, 0, 0);
+            src = cv.toDataURL('image/png');
+          }
+          ensure(lh + 4);
+          doc.addImage(src, fmt, lx, y, lw, lh);
+          y += lh + 4;
+        } catch(e) {}
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = reportMeta.logoDataUrl;
+    });
+  }
+
+  if (reportMeta.institution) para(reportMeta.institution.toUpperCase(), { size:9, color:C.muted, align:'center' });
+  para(reportMeta.name || 'Relatório de Transações de Criptoativos', { size:16, color:C.ink, style:'bold', align:'center' });
+  para('Documentação de transações registradas em redes públicas de blockchain', { size:8.5, color:C.muted, align:'center' });
+  rule(3, 5, C.headbar, 0.5);
+
+  // === IDENTIFICAÇÃO ===
+  if (reportMeta.procedure)   field('Procedimento:', reportMeta.procedure);
+  if (reportMeta.operator)    field('Operador:', reportMeta.operator);
+  if (reportMeta.unit)        field('Unidade:', reportMeta.unit);
+  if (reportMeta.institution) field('Instituição:', reportMeta.institution);
+  field('Data de geração:', now);
+  field('Total de transações:', String(approved.length));
+  rule(3, 5);
+
+  // === CONTEXTO DO RELATÓRIO ===
+  if ((reportMeta.context || '').trim()) {
+    setFont(10, C.sub, 'bold'); doc.text('Contexto do Relatório:', mL, y); y += leading(10);
+    para(reportMeta.context, { size:9, color:C.ink, align:'justify' });
+    rule(2, 4);
+  }
+
+  // === TEXTO INTRODUTÓRIO ===
+  para(INTRO_TEXT, { size:9, color:C.sub, style:'italic', align:'justify' });
+  rule(3, 6);
+
+  // === TRANSAÇÕES ===
+  for (let i = 0; i < approved.length; i++) {
+    const tx = approved[i];
+
+    txHeading(`Transação ${i+1}`);
+
+    field('Rede:', networkLabel(tx.network));
+    if (tx.txStatus) field('Status:', tx.txStatus);
+    const dt = tx.datetimeBrazil
+      ? `${tx.datetimeBrazil}${tx.datetimeUTC ? ` [${tx.datetimeUTC}]` : ''}`
+      : (tx.datetimeUTC || '');
+    if (dt) field('Data/hora:', dt);
+    if (tx.fee) field('Taxa de rede:', tx.fee);
+    field('Hash:', tx.txid || 'N/D');
+    field('Explorador:', tx.explorerUrl || 'N/D', { link:true });
+
+    y += 2;
+    para('Descrição', { size:10, color:C.ink, style:'bold' });
+    y += 0.5;
+    para(tx.editedText || tx.autoText || '', { size:10, color:C.ink, align:'justify' });
+    y += 2;
+
+    // Entradas/Saídas estruturadas (apenas Bitcoin, conforme o switch)
+    if (tx.network === 'bitcoin' && btcShowList(tx)) {
+      const { inputs, outputs } = btcReportRows(tx);
+      utxoBlock(`Entradas (${inputs.length}) — total ${tx.totalIn || '0'} BTC`, inputs);
+      utxoBlock(`Saídas (${outputs.length}) — total ${tx.totalOut || '0'} BTC`, outputs);
+    }
+
+    // Imagens desta transação
+    for (let j = 0; j < tx.images.length; j++) {
+      const img = tx.images[j];
+      if (y + leading(9) + IMG_H_MIN + CAPTION_RESERVE > bottom) newPage();
+      para(`Imagem ${j+1}:`, { size:9, color:C.sub, style:'bold' });
+      await addImgToPdf(img.dataUrl);
+      if (img.caption) para(`Legenda: ${img.caption}`, { size:8, color:C.muted, style:'italic', indent:3 });
+      y += 2;
+    }
+
+    // Contexto individual da transação
+    if ((tx.context || '').trim()) {
+      y += 1;
+      setFont(10, C.sub, 'bold'); doc.text('Contexto:', mL, y); y += leading(10);
+      para(tx.context, { size:9, color:C.sub, align:'justify' });
+      y += 2;
+    }
+
+    if (i < approved.length - 1) rule(4, 6);
+  }
+
+  // === ASSINATURA DIGITAL ===
+  if (reportSignature) {
+    rule(4, 6);
+    ensure(leading(11) * 6 + 10);
+    setFont(11, C.ink, 'bold'); doc.text('Assinatura Digital do Analista', mL, y); y += leading(11) + 2;
+    doc.setDrawColor(...C.accent); doc.setLineWidth(0.4); doc.line(mL, y, pW-mR, y); y += 4;
+    field('Identificador:', reportSignature.identifier);
+    field('Chave Pública:', reportSignature.publicKey);
+    field('Hash do Relatório (SHA-256):', reportSignature.reportHash);
+    field('Assinatura:', reportSignature.signature);
+    field('Timestamp:', reportSignature.timestamp);
+  }
+
+  // === RODAPÉ (filete + nome do relatório + paginação) ===
+  const pageCount = doc.internal.getNumberOfPages();
+  const repName = reportMeta.name || 'Relatório de Transações de Criptoativos';
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(...C.rule); doc.setLineWidth(0.2);
+    doc.line(mL, pH - mB + 6, pW - mR, pH - mB + 6);
+    setFont(8, C.muted, 'normal');
+    const fname = doc.splitTextToSize(repName, cW - 35)[0];
+    doc.text(fname, mL, pH - mB + 11);
+    doc.text(`Página ${p} de ${pageCount}`, pW - mR, pH - mB + 11, { align:'right' });
+  }
+
+  const filename = (reportMeta.name || 'relatorio_transacoes').replace(/[^a-zA-Z0-9_\- ]/g,'').replace(/ /g,'_') + '.pdf';
+  doc.save(filename);
+}
+
+/* =============================================================
+   GERAÇÃO DE DOCX (docx.js)
+   Nota: imagens em DOCX gerado no navegador são suportadas pela
+   biblioteca docx.js via ImageRun, convertendo o dataURL para
+   Uint8Array. Pode haver limitações em navegadores sem Blob URL.
+   ============================================================= */
+async function generateDOCX() {
+  const approved = reportTransactions.filter(t => t.approved);
+  if (!approved.length) { alert('Aprove pelo menos uma transação antes de gerar o DOCX.'); return; }
+  if (!window.docx) { alert('Biblioteca docx.js não carregou. Verifique sua conexão e tente novamente.'); return; }
+
+  const { Document, Paragraph, TextRun, ImageRun, HeadingLevel, AlignmentType, Packer, ExternalHyperlink } = window.docx;
+
+  function dataUrlToBytes(dataUrl) {
+    const b64 = dataUrl.split(',')[1];
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i=0; i<bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return arr;
+  }
+
+  // Normaliza qualquer imagem (PNG/JPG/WEBP/etc.) para PNG via canvas.
+  // Isso garante que os bytes embutidos correspondam ao formato declarado
+  // (Word recusa o arquivo inteiro se um .png/.jpg contiver bytes WEBP).
+  // Retorna bytes PNG + dimensões naturais em pixels.
+  async function normalizeImage(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width  = img.naturalWidth  || 1;
+          canvas.height = img.naturalHeight || 1;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const pngUrl = canvas.toDataURL('image/png');
+          resolve({ bytes: dataUrlToBytes(pngUrl), w: canvas.width, h: canvas.height });
+        } catch (e) { reject(e); }
+      };
+      img.onerror = () => reject(new Error('falha ao carregar imagem'));
+      img.src = dataUrl;
+    });
+  }
+
+  // Dimensões da imagem no DOCX em PIXELS (a lib converte px→EMU internamente).
+  // Largura máxima ~ largura útil da página A4 com margens (≈ 600px / 6.25").
+  function calcDocxDims(nW, nH) {
+    const MAX_W = 600; // px
+    let w = nW, h = nH;
+    if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
+    return { width: Math.max(1, Math.round(w)), height: Math.max(1, Math.round(h)) };
+  }
+
+  const children = [];
+  const now = new Date().toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'});
+
+  // Campo rotulado "Rótulo: valor"
+  const fieldPara = (label, value, link=false) => new Paragraph({
+    spacing:{after:40},
+    children:[
+      new TextRun({text: label + ' ', bold:true, size:20, color:'46464b'}),
+      new TextRun({text: String(value == null ? '' : value), size:20, color: link ? '2850a0' : '1c1c1e'})
+    ]
+  });
+
+  // Cabeçalho do relatório
+  if (reportMeta.institution) children.push(new Paragraph({
+    alignment: AlignmentType.CENTER,
+    children:[new TextRun({text: reportMeta.institution.toUpperCase(), size:18, color:'7d7d82'})]
+  }));
+  children.push(new Paragraph({
+    alignment: AlignmentType.CENTER, heading: HeadingLevel.HEADING_1,
+    children: [new TextRun({text: reportMeta.name || 'Relatório de Transações de Criptoativos', bold:true})]
+  }));
+  children.push(new Paragraph({
+    alignment: AlignmentType.CENTER, spacing:{after:160},
+    children:[new TextRun({text:'Documentação de transações registradas em redes públicas de blockchain', size:17, color:'7d7d82', italics:true})]
+  }));
+
+  // Identificação
+  if (reportMeta.procedure)   children.push(fieldPara('Procedimento:', reportMeta.procedure));
+  if (reportMeta.operator)    children.push(fieldPara('Operador:', reportMeta.operator));
+  if (reportMeta.unit)        children.push(fieldPara('Unidade:', reportMeta.unit));
+  if (reportMeta.institution) children.push(fieldPara('Instituição:', reportMeta.institution));
+  children.push(fieldPara('Data de geração:', now));
+  children.push(fieldPara('Total de transações:', String(approved.length)));
+
+  // Texto introdutório
+  children.push(new Paragraph({
+    spacing:{before:160, after:200}, alignment: AlignmentType.JUSTIFIED,
+    children:[new TextRun({text: INTRO_TEXT, size:18, color:'555555', italics:true})]
+  }));
+
+  // Transações
+  for (let i=0; i<approved.length; i++) {
+    const tx = approved[i];
+
+    children.push(new Paragraph({
+      heading: HeadingLevel.HEADING_2, spacing:{before:200, after:80},
+      border:{ bottom:{ color:'b0630c', space:2, style:'single', size:8 } },
+      children:[new TextRun({text:`Transação ${i+1}`, bold:true})]
+    }));
+
+    children.push(fieldPara('Rede:', networkLabel(tx.network)));
+    if (tx.txStatus) children.push(fieldPara('Status:', tx.txStatus));
+    const dt = tx.datetimeBrazil
+      ? `${tx.datetimeBrazil}${tx.datetimeUTC ? ` [${tx.datetimeUTC}]` : ''}`
+      : (tx.datetimeUTC || '');
+    if (dt) children.push(fieldPara('Data/hora:', dt));
+    if (tx.fee) children.push(fieldPara('Taxa de rede:', tx.fee));
+    children.push(fieldPara('Hash:', tx.txid || 'N/D'));
+    children.push(fieldPara('Explorador:', tx.explorerUrl || 'N/D', true));
+
+    // Descrição (preserva quebras de linha)
+    children.push(new Paragraph({
+      spacing:{before:120, after:40},
+      children:[new TextRun({text:'Descrição', bold:true, size:20, color:'1c1c1e'})]
+    }));
+    const descRuns = String(tx.editedText || tx.autoText || '').split('\n')
+      .map((ln, idx) => new TextRun(idx === 0 ? {text:ln, size:20} : {text:ln, size:20, break:1}));
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing:{after:120}, children: descRuns }));
+
+    // Contexto individual (DOCX)
+    if ((tx.context || '').trim()) {
+      children.push(new Paragraph({ spacing:{before:80, after:40},
+        children:[new TextRun({text:'Contexto:', bold:true, size:20, color:'46464b'})] }));
+      children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing:{after:80},
+        children:[new TextRun({text: tx.context, size:18, color:'555555', italics:true})] }));
+    }
+
+    // Entradas/Saídas estruturadas (apenas Bitcoin, conforme o switch)
+    if (tx.network === 'bitcoin' && btcShowList(tx)) {
+      const { inputs, outputs } = btcReportRows(tx);
+      const listTitle = t => new Paragraph({ spacing:{before:80, after:40},
+        children:[new TextRun({text:t, bold:true, size:20, color:'46464b'})] });
+      const rowPara = r => new Paragraph({ spacing:{after:20}, children:[
+        new TextRun({text:'-  '+r.addr, size:18, color: r.target?'b0630c':'1c1c1e', bold:!!r.target}),
+        new TextRun({text:`   —   ${r.amt} BTC`, size:18, color: r.target?'b0630c':'46464b', bold:!!r.target}),
+        ...(r.target ? [new TextRun({text:'   (investigado)', size:16, color:'b0630c', bold:true})] : [])
+      ]});
+      const emptyPara = () => new Paragraph({children:[new TextRun({text:'(nenhuma)', italics:true, size:18, color:'7d7d82'})]});
+      children.push(listTitle(`Entradas (${inputs.length}) — total ${tx.totalIn || '0'} BTC`));
+      inputs.length ? inputs.forEach(r => children.push(rowPara(r))) : children.push(emptyPara());
+      children.push(listTitle(`Saídas (${outputs.length}) — total ${tx.totalOut || '0'} BTC`));
+      outputs.length ? outputs.forEach(r => children.push(rowPara(r))) : children.push(emptyPara());
+    }
+
+    children.push(new Paragraph({children:[new TextRun({text:'', break:1})]}));
+
+    // Imagens
+    for (let j=0; j<tx.images.length; j++) {
+      const img = tx.images[j];
+      children.push(new Paragraph({children:[new TextRun({text:`Imagem ${j+1}:`, bold:true, size:18})]}));
+      try {
+        // Reencoda para PNG para garantir compatibilidade com o Word
+        const norm = await normalizeImage(img.dataUrl);
+        const {width, height} = calcDocxDims(norm.w, norm.h);
+        children.push(new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children:[new ImageRun({data: norm.bytes, transformation:{width, height}, type:'png'})]
+        }));
+      } catch(e) {
+        children.push(new Paragraph({children:[new TextRun({text:'(imagem não incluída)', color:'999999', size:18})]}));
+      }
+      if (img.caption) {
+        children.push(new Paragraph({children:[new TextRun({text:`Legenda: ${img.caption}`, size:18, italics:true, color:'666666'})]}));
+      }
+      children.push(new Paragraph({children:[new TextRun({text:''})]}));
+    }
+  }
+
+  // === CONTEXTO DO RELATÓRIO (DOCX) ===
+  if ((reportMeta.context || '').trim()) {
+    children.push(new Paragraph({ spacing:{before:80, after:40},
+      children:[new TextRun({text:'Contexto do Relatório', bold:true, size:20, color:'46464b'})] }));
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing:{after:160},
+      children:[new TextRun({text: reportMeta.context, size:18, color:'555555'})] }));
+  }
+
+  // === ASSINATURA DIGITAL (DOCX) ===
+  if (reportSignature) {
+    children.push(new Paragraph({ spacing:{before:200, after:80},
+      border:{ bottom:{ color:'b0630c', space:2, style:'single', size:8 } },
+      children:[new TextRun({text:'Assinatura Digital do Analista', bold:true, size:22})] }));
+    children.push(fieldPara('Identificador:', reportSignature.identifier));
+    children.push(fieldPara('Chave Pública:', reportSignature.publicKey));
+    children.push(fieldPara('Hash do Relatório:', reportSignature.reportHash));
+    children.push(fieldPara('Assinatura:', reportSignature.signature));
+    children.push(fieldPara('Timestamp:', reportSignature.timestamp));
+  }
+
+  const docObj = new Document({ sections:[{children}] });
+
+  try {
+    const blob = await Packer.toBlob(docObj);
+    const filename = (reportMeta.name||'relatorio_transacoes').replace(/[^a-zA-Z0-9_\- ]/g,'').replace(/ /g,'_') + '.docx';
+    downloadBlob(blob, filename);
+  } catch(e) {
+    alert('Erro ao gerar DOCX: ' + (e.message || String(e)));
+  }
+}
+
+/* =============================================================
+   EXPORTAR / IMPORTAR PROJETO JSON
+   ============================================================= */
+function exportProject() {
+  // Salva textos editados antes de exportar
+  reportTransactions.forEach(tx => {
+    const ta = document.getElementById(`ta-${tx.id}`);
+    if (ta) tx.editedText = ta.value;
+  });
+
+  const payload = {
+    version:      '1.0',
+    exported:     new Date().toISOString(),
+    meta:         reportMeta,
+    transactions: reportTransactions
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const filename = 'projeto_relatorio_' + new Date().toISOString().slice(0,10) + '.json';
+  downloadBlob(blob, filename);
+}
+
+function importProject(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.meta || !Array.isArray(data.transactions)) throw new Error('Formato inválido.');
+      reportMeta = data.meta;
+      reportTransactions = data.transactions;
+      // Atualiza txCounter e imgCounter para evitar colisões
+      reportTransactions.forEach(tx => {
+        const n = parseInt(tx.id.replace('tx-',''));
+        if (n >= txCounter) txCounter = n + 1;
+        tx.images.forEach(img => {
+          const m = parseInt(img.id.replace('img-',''));
+          if (m >= imgCounter) imgCounter = m + 1;
+        });
+      });
+      // Restaura campos de metadados
+      document.getElementById('mName').value = reportMeta.name || '';
+      document.getElementById('mProc').value = reportMeta.procedure || '';
+      document.getElementById('mOper').value = reportMeta.operator || '';
+      document.getElementById('mUnit').value = reportMeta.unit || '';
+      document.getElementById('mInst').value = reportMeta.institution || '';
+      if (document.getElementById('mContext')) document.getElementById('mContext').value = reportMeta.context || '';
+      if (reportMeta.logoDataUrl) setLogoPreview(reportMeta.logoDataUrl);
+      renderTransactionList();
+      updateReportSummary();
+    } catch(err) {
+      alert('Erro ao importar projeto: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  input.value = ''; // reset para permitir reimportar o mesmo arquivo
+}
+
+/* =============================================================
+   LOGO DA INSTITUIÇÃO
+   ============================================================= */
+function setLogoPreview(dataUrl) {
+  reportMeta.logoDataUrl = dataUrl;
+  const prev = document.getElementById('logoPreview');
+  const placeholder = document.getElementById('logoPlaceholder');
+  const removeBtn = document.getElementById('logoRemoveBtn');
+  if (prev) { prev.src = dataUrl; prev.style.display = 'block'; }
+  if (placeholder) placeholder.style.display = 'none';
+  if (removeBtn) removeBtn.style.display = 'inline-flex';
+}
+
+function removeLogo(e) {
+  e.stopPropagation();
+  reportMeta.logoDataUrl = '';
+  const prev = document.getElementById('logoPreview');
+  const placeholder = document.getElementById('logoPlaceholder');
+  const removeBtn = document.getElementById('logoRemoveBtn');
+  if (prev) { prev.src = ''; prev.style.display = 'none'; }
+  if (placeholder) placeholder.style.display = 'flex';
+  if (removeBtn) removeBtn.style.display = 'none';
+  const fi = document.getElementById('logoFileInput');
+  if (fi) fi.value = '';
+}
+
+function handleLogoFile(input) {
+  const file = input.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (e) => setLogoPreview(e.target.result);
+  reader.readAsDataURL(file);
+}
+
+function handleLogoDrop(event) {
+  event.preventDefault();
+  document.getElementById('logoUploadZone')?.classList.remove('drag-over');
+  const file = Array.from(event.dataTransfer.files).find(f => f.type.startsWith('image/'));
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => setLogoPreview(e.target.result);
+    reader.readAsDataURL(file);
+  }
+}
+
+// Paste da logo: Ctrl+V quando o foco está na zona de logo
+document.addEventListener('DOMContentLoaded', () => {
+  const lz = document.getElementById('logoUploadZone');
+  if (lz) {
+    lz.addEventListener('paste', (e) => {
+      const items = Array.from(e.clipboardData?.items || []);
+      const imgItem = items.find(i => i.type.startsWith('image/'));
+      if (imgItem) { e.preventDefault(); const f = imgItem.getAsFile(); const r = new FileReader(); r.onload = ev => setLogoPreview(ev.target.result); r.readAsDataURL(f); }
+    });
+    lz.setAttribute('tabindex', '0');
+  }
+});
+
+/* =============================================================
+   ASSINATURA DIGITAL (HMAC-SHA256 via WebCrypto, entropia = telefone)
+   Usa PBKDF2 para derivar uma chave HMAC determinística a partir
+   do número de telefone. Funciona em file:// sem restrições.
+   ============================================================= */
+
+// Máscara de telefone: (XX)XXXXXXXXX
+function maskPhone(input) {
+  let v = input.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length === 0) { input.value = ''; return; }
+  let out = '(' + v.slice(0, 2);
+  if (v.length > 2) out += ')' + v.slice(2, 11);
+  input.value = out;
+}
+
+async function deriveHmacKeyFromPhone(phone) {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 10) throw new Error('Número de telefone inválido. Preencha no formato (XX)XXXXXXXXX com DDD.');
+
+  const enc = new TextEncoder();
+
+  // Importa o número como material base para PBKDF2
+  const keyMat = await crypto.subtle.importKey(
+    'raw', enc.encode(digits),
+    { name: 'PBKDF2' }, false, ['deriveKey']);
+
+  // Deriva uma chave HMAC-SHA256 (32 bytes de entropia)
+  const hmacKey = await crypto.subtle.deriveKey({
+    name: 'PBKDF2',
+    salt: enc.encode('fenixreport2026'),
+    iterations: 100000,
+    hash: 'SHA-256'
+  }, keyMat, { name: 'HMAC', hash: 'SHA-256' }, true, ['sign']);
+
+  // Exporta os bytes da chave para exibição
+  const rawBytes = await crypto.subtle.exportKey('raw', hmacKey);
+  const keyB64 = btoa(String.fromCharCode(...new Uint8Array(rawBytes)));
+
+  return { hmacKey, keyB64, digits };
+}
+
+async function computeReportHash() {
+  const approved = reportTransactions.filter(t => t.approved);
+  const payload = JSON.stringify({ meta: reportMeta, transactions: approved.map(t => ({
+    txid: t.txid, network: t.network, from: t.from, to: t.to,
+    asset: t.asset, amount: t.amount, editedText: t.editedText, context: t.context
+  })) });
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function generateSignature() {
+  const phone = (document.getElementById('sigPhone')?.value || '').trim();
+  if (!phone) { alert('Informe o número de telefone do analista.'); return; }
+  const approved = reportTransactions.filter(t => t.approved);
+  if (!approved.length) { alert('Aprove pelo menos uma transação antes de assinar.'); return; }
+
+  const btn = document.querySelector('button[onclick="generateSignature()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Gerando...'; }
+
+  try {
+    const { hmacKey, keyB64, digits } = await deriveHmacKeyFromPhone(phone);
+    const hash = await computeReportHash();
+    const timestamp = new Date().toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'});
+
+    // Assina o hash do relatório com HMAC-SHA256
+    const hashBuf = new TextEncoder().encode(hash);
+    const sigBuf  = await crypto.subtle.sign('HMAC', hmacKey, hashBuf);
+    const sigB64  = btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
+
+    // Identificador: nome do operador (campo da Seção 1)
+    const operatorName = (document.getElementById('mOper')?.value || '').trim();
+    if (!operatorName) { alert('Preencha o campo "Nome do Operador" na Seção 1 antes de gerar a assinatura.'); return; }
+    const ident = operatorName;
+
+    reportSignature = { identifier: ident, publicKey: keyB64, reportHash: hash, signature: sigB64, timestamp };
+
+    document.getElementById('sigPubKey').textContent    = keyB64;
+    document.getElementById('sigIdent').textContent     = ident;
+    document.getElementById('sigHashVal').textContent   = hash;
+    document.getElementById('sigValue').textContent     = sigB64;
+    document.getElementById('sigTimestamp').textContent = timestamp;
+    document.getElementById('sigOutput').style.display  = 'block';
+    document.getElementById('sigWarn').style.display    = 'block';
+  } catch(e) {
+    alert('Erro ao gerar assinatura: ' + (e.message || String(e)));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔐 Gerar Assinatura'; }
+  }
+}
+
+function clearSignature() {
+  reportSignature = null;
+  document.getElementById('sigOutput').style.display = 'none';
+  document.getElementById('sigWarn').style.display = 'none';
+}
+
+/* =============================================================
+   PASTE GLOBAL DE IMAGEM (Ctrl+V fora das drop zones)
+   Roteia para o último card com foco.
+   ============================================================= */
+document.addEventListener('paste', (e) => {
+  // Ignora se estiver em input de texto ou na zona de logo
+  const active = document.activeElement;
+  if (['INPUT','TEXTAREA'].includes(active?.tagName)) return;
+  if (active?.closest('#logoUploadZone')) return; // tratado pela zona de logo
+  const items = Array.from(e.clipboardData?.items || []);
+  const imgItem = items.find(i => i.type.startsWith('image/'));
+  if (!imgItem) return;
+  if (lastFocusedTxId) {
+    e.preventDefault();
+    addImageToTx(lastFocusedTxId, imgItem.getAsFile());
+  }
+});
+
+/* =============================================================
+   INICIALIZAÇÃO
+   ============================================================= */
+document.addEventListener('DOMContentLoaded', () => {
+  loadKeysFromSession();
+  updateKeyStatus();
+  updateReportSummary();
+
+  // Enter no campo de chave abre / salva modal
+  ['modalEthKey','modalTronKey'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('keydown', e => { if (e.key==='Enter') saveKeys(); });
+      el.addEventListener('input', updateModalIndicators);
+    }
+  });
+
+  // Escape fecha modais
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeKeyModal();
+      closePreview();
+      const ov = document.getElementById('imgPreviewOverlay');
+      if (ov) { ov.classList.remove('open'); ov.style.display='none'; }
+    }
+  });
+});
+</script>
+</body>
+</html>
